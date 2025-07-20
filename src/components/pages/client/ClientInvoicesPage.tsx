@@ -90,7 +90,7 @@ const ClientInvoicesPage: React.FC = () => {
       dataIndex: 'subtotal',
       key: 'subtotal',
       render: (amount: number) => (
-        <Text>{amount.toLocaleString()} €</Text>
+        <Text>{amount.toLocaleString()} TND</Text>
       ),
     },
     {
@@ -98,7 +98,7 @@ const ClientInvoicesPage: React.FC = () => {
       dataIndex: 'tax',
       key: 'tax',
       render: (amount: number) => (
-        <Text>{amount.toLocaleString()} €</Text>
+        <Text>{amount.toLocaleString()} TND</Text>
       ),
     },
     {
@@ -107,7 +107,7 @@ const ClientInvoicesPage: React.FC = () => {
       key: 'total',
       render: (amount: number) => (
         <Text strong style={{ color: '#52c41a', fontSize: '16px' }}>
-          {amount.toLocaleString()} €
+          {amount.toLocaleString()} TND
         </Text>
       ),
       sorter: (a: Invoice, b: Invoice) => a.total - b.total,
@@ -249,24 +249,24 @@ const ClientInvoicesPage: React.FC = () => {
                   dataIndex: 'unitPrice',
                   key: 'unitPrice',
                   width: 120,
-                  render: (price: number) => `${price.toLocaleString()} €`,
+                  render: (price: number) => `${price.toLocaleString()} TND`,
                 },
                 {
                   title: 'Total',
                   dataIndex: 'total',
                   key: 'total',
                   width: 120,
-                  render: (total: number) => `${total.toLocaleString()} €`,
+                  render: (total: number) => `${total.toLocaleString()} TND`,
                 },
               ]}
             />
 
             <div style={{ marginTop: 16, textAlign: 'right' }}>
               <Space direction="vertical" size="small" style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <Text>Sous-total HT: <strong>{selectedInvoice.subtotal.toLocaleString()} €</strong></Text>
-                <Text>TVA (20%): <strong>{selectedInvoice.tax.toLocaleString()} €</strong></Text>
+                <Text>Sous-total HT: <strong>{selectedInvoice.subtotal.toLocaleString()} TND</strong></Text>
+                <Text>TVA (20%): <strong>{selectedInvoice.tax.toLocaleString()} TND</strong></Text>
                 <Text style={{ fontSize: '18px' }}>
-                  Total TTC: <strong style={{ color: '#52c41a' }}>{selectedInvoice.total.toLocaleString()} €</strong>
+                  Total TTC: <strong style={{ color: '#52c41a' }}>{selectedInvoice.total.toLocaleString()} TND</strong>
                 </Text>
               </Space>
             </div>

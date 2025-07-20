@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, Typography, message, Divider, Alert, Checkbox, Avatar } from 'antd';
 import { LockOutlined, CrownOutlined, UserAddOutlined, EyeInvisibleOutlined, EyeTwoTone, MailOutlined, SafetyOutlined, ThunderboltOutlined, GlobalOutlined } from '@ant-design/icons';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { loginStart, loginSuccess } from '../../store/slices/authSlice';
+import { login } from '../../store/slices/authSlice';
+import { RootState } from '../../store';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -16,8 +17,7 @@ interface LoginForm {
 const LoginPage: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [error, setError] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const { loading, error, isAuthenticated, user } = useSelector((state: RootState) => state.auth);
   const [form] = Form.useForm();
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
 
@@ -36,60 +36,33 @@ const LoginPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const onFinish = async (values: LoginForm) => {
-    setLoading(true);
-    dispatch(loginStart());
-    setShowLoginAnimation(true);
-    setError(''); // Clear any previous errors
-    
-    // Simulation d'authentification
-    setTimeout(() => {
-      let user;
-      if (values.email === 'admin@erp.com') {
-        user = {
-          id: 'admin',
-          email: 'admin@erp.com',
-          name: 'Administrateur',
-          role: 'admin' as const,
-          company: 'ERP Solutions',
-          avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?w=100&h=100&fit=crop&crop=face',
-        };
-      } else {
-        user = {
-          id: '1',
-          email: 'jean.dupont@email.com',
-          name: 'Jean Dupont',
-          role: 'client' as const,
-          company: 'Tech Solutions SAS',
-          avatar: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?w=100&h=100&fit=crop&crop=face',
-        };
-      }
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+      navigate(redirectPath, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
-      const token = 'mock-jwt-token';
+  const onFinish = async (values: LoginForm) => {
+    setShowLoginAnimation(true);
+    
+    try {
+      await dispatch(login(values) as any);
       
-      // Save remember me preference
-      if (values.remember) {
-        localStorage.setItem('rememberUser', 'true');
-      } else {
-        localStorage.removeItem('rememberUser');
+      // Show welcome message when login is successful
+      if (user) {
+        message.success({
+          content: `Bienvenue ${user.name} !`,
+          icon: <Avatar src={user.avatar} size={24} style={{ marginRight: 8 }} />,
+          className: 'custom-success-message'
+        });
       }
-      
-      dispatch(loginSuccess({ user, token }));
-      
-      message.success({
-        content: `Bienvenue ${user.name} !`,
-        icon: <Avatar src={user.avatar} size={24} style={{ marginRight: 8 }} />,
-        className: 'custom-success-message'
-      });
-      
-      // Redirection avec un petit délai pour l'UX
-      setTimeout(() => {
-        navigate(user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard', { replace: true });
-      }, 500);
-      
-      setLoading(false);
+    } catch (err) {
+      console.error('Login error:', err);
+    } finally {
       setShowLoginAnimation(false);
-    }, 1500);
+    }
   };
 
   const loginAsAdmin = () => {
@@ -257,185 +230,123 @@ const LoginPage: React.FC = () => {
                 <span className="relative z-10">24/7</span>
                 <span className="absolute -inset-1 bg-purple-100 rounded-lg -z-0 opacity-30"></span>
               </div>
-              <div className="text-gray-600 font-medium">Support</div>
+              <div className="text-gray-600 font-medium">Support client</div>
             </div>
           </div>
         </div>
 
         {/* Right side - Login form */}
-        <div className="lg:col-span-2 w-full max-w-lg mx-auto animate-slide-in">
+        <div className="lg:col-span-2 w-full max-w-md mx-auto">
           <Card 
-            className="shadow-2xl border-0 backdrop-blur-md bg-white/95 transform hover:scale-[1.02] transition-transform duration-300"
-            style={{ 
-              borderRadius: '32px',
-              overflow: 'hidden',
-            }}
+            className="overflow-hidden rounded-3xl shadow-2xl border-0 bg-white/90 backdrop-blur-md"
+            bordered={false}
           >
-            {/* Enhanced Header */}
-            <div className="text-center mb-10 p-8 -m-8 bg-gradient-to-br from-teal-500 via-teal-600 to-blue-600 text-white relative overflow-hidden">
-              {/* Animated background pattern */}
-              <div className="absolute inset-0 opacity-20">
-                <div className="absolute top-0 left-0 w-full h-full bg-grid-pattern"></div>
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 animate-pulse"></div>
-              </div>
-              
-              <div className="relative z-10">
-                <div className="w-24 h-24 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-sm shadow-xl">
-                  <CrownOutlined className="text-4xl text-white" />
-                </div>
-                <Title level={2} className="!text-white !mb-3 !text-3xl !font-bold">
-                  Connexion
-                </Title>
-                <Text className="text-teal-100 text-lg font-medium">
-                  Accédez à votre espace de gestion
+            <div className="px-2 py-2">
+              <div className="text-center mb-8">
+                <Title level={2} className="!text-gray-800 !mb-3">Connexion</Title>
+                <Text className="text-gray-500">
+                  Accédez à votre tableau de bord ERP Pro
                 </Text>
               </div>
-            </div>
 
-            <div className="px-8 pb-8">
+              {/* Display error message if any */}
+              {error && (
+                <Alert
+                  message="Erreur d'authentification"
+                  description={error}
+                  type="error"
+                  showIcon
+                  className="mb-6 rounded-xl"
+                />
+              )}
+
               <Form
                 form={form}
                 name="login"
-                onFinish={onFinish}
                 layout="vertical"
-                size="large"
-                validateTrigger="onSubmit"
-                preserve={false}
                 initialValues={{ remember: true }}
-                onFinishFailed={() => {
-                  setError('Veuillez vérifier vos informations de connexion');
-                  setLoading(false);
-                }}
-                className="space-y-6"
+                onFinish={onFinish}
+                size="large"
+                className="w-full"
               >
                 <Form.Item
-                  label={<span className="text-gray-700 font-semibold text-base">Adresse email</span>}
                   name="email"
-                  rules={[
-                    { required: true, message: 'Veuillez saisir votre email' },
-                    { type: 'email', message: 'Format email invalide' }
-                  ]}
+                  rules={[{ required: true, message: 'Veuillez saisir votre email' }, { type: 'email', message: 'Email invalide' }]}
                 >
                   <Input 
-                    prefix={<MailOutlined className="text-gray-400 text-lg" />} 
-                    placeholder="admin@erp.com ou jean.dupont@email.com"
-                    className="rounded-2xl border-2 border-gray-200 hover:border-teal-400 focus:border-teal-500 transition-all duration-300 shadow-sm hover:shadow-md"
-                    style={{ height: '56px', fontSize: '16px' }}
+                    prefix={<MailOutlined className="text-gray-400" />} 
+                    placeholder="Email" 
+                    className="rounded-xl py-2 px-4" 
                   />
                 </Form.Item>
 
                 <Form.Item
-                  label={<span className="text-gray-700 font-semibold text-base">Mot de passe</span>}
                   name="password"
                   rules={[{ required: true, message: 'Veuillez saisir votre mot de passe' }]}
+                  className="mb-2"
                 >
-                  <Input.Password 
-                    prefix={<LockOutlined className="text-gray-400 text-lg" />} 
-                    placeholder="Votre mot de passe"
-                    iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
-                    className="rounded-2xl border-2 border-gray-200 hover:border-teal-400 focus:border-teal-500 transition-all duration-300 shadow-sm hover:shadow-md"
-                    style={{ height: '56px', fontSize: '16px' }}
+                  <Input.Password
+                    prefix={<LockOutlined className="text-gray-400" />}
+                    placeholder="Mot de passe"
+                    iconRender={visible => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                    className="rounded-xl py-2 px-4"
                   />
                 </Form.Item>
 
-                {error && (
-                  <Form.Item>
-                    <Alert 
-                      message={error} 
-                      type="error" 
-                      showIcon 
-                      closable 
-                      onClose={() => setError('')}
-                      className="rounded-xl animate-shake" 
-                    />
-                  </Form.Item>
-                )}
+                <Form.Item name="remember" valuePropName="checked" className="mb-6">
+                  <Checkbox>Se souvenir de moi</Checkbox>
+                </Form.Item>
 
-                <div className="flex justify-between items-center py-2">
-                  <Form.Item name="remember" valuePropName="checked" noStyle>
-                    <Checkbox className="font-medium text-gray-600">Se souvenir de moi</Checkbox>
-                  </Form.Item>
-                  <Button type="link" className="p-0 text-teal-600 hover:text-teal-700 font-medium">
-                    Mot de passe oublié ?
-                  </Button>
-                </div>
-
-                <Form.Item className="mb-8">
+                <Form.Item className="mb-4">
                   <Button 
                     type="primary" 
                     htmlType="submit" 
+                    block 
+                    className="h-12 rounded-xl bg-gradient-to-r from-teal-500 to-teal-600 border-0 shadow-lg hover:shadow-xl transition-all duration-300"
                     loading={loading}
-                    block
-                    className="h-14 rounded-2xl font-bold text-lg bg-gradient-to-r from-teal-500 to-teal-600 border-0 hover:from-teal-600 hover:to-teal-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    {loading ? 'Connexion en cours...' : 'Se connecter'}
+                    Connexion
                   </Button>
                 </Form.Item>
-              </Form>
 
-              <Divider className="!text-gray-400 !text-sm !my-8">
-                <span className="bg-white px-6 text-gray-500 font-medium">Accès rapide démo</span>
-              </Divider>
-              
-              <div className="grid grid-cols-1 gap-4 mt-8">
-                <Button 
-                  icon={<CrownOutlined />} 
-                  onClick={loginAsAdmin}
-                  loading={loading}
-                  className="h-14 rounded-2xl border-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-semibold transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-[1.02]"
-                >
-                  <span>Connexion Administrateur</span>
-                </Button>
-                <Button 
-                  icon={<UserAddOutlined />} 
-                  onClick={loginAsClient}
-                  loading={loading}
-                  className="h-14 rounded-2xl border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 font-semibold transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-[1.02]"
-                >
-                  <span>Connexion Client</span>
-                </Button>
-              </div>
-                
-            </div>
-          </Card>
+                <div className="text-center mb-6">
+                  <Link to="/forgot-password" className="text-teal-600 hover:text-teal-700 transition-colors duration-300">
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
 
-          {/* Mobile branding */}
-          <div className="lg:hidden text-center mt-10 space-y-6">
-            <div className="flex items-center justify-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-xl">
-                <CrownOutlined className="text-white text-2xl" />
-              </div>
-              <div>
-                <Title level={2} className="!text-gray-800 !mb-1 !text-3xl">ERP Pro</Title>
-                <Text className="text-gray-600 text-lg">Solution de gestion</Text>
-              </div>
-            </div>
-            
-            {/* Mobile features */}
-            <div className="grid grid-cols-3 gap-4 mt-8">
-              {features.map((feature, index) => (
-                <div key={index} className="text-center p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-white/30 shadow-md">
-                  <div className="w-12 h-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    {feature.icon}
-                  </div>
-                  <Text strong className="text-gray-800 text-sm block">
-                    {feature.title}
+                <Divider className="!mb-6">
+                  <span className="text-gray-400 text-sm px-4">Ou accès rapide</span>
+                </Divider>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <Button 
+                    icon={<CrownOutlined />} 
+                    onClick={loginAsAdmin}
+                    className="h-12 rounded-xl flex items-center justify-center bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-indigo-700 border border-indigo-100 shadow-md hover:shadow-lg transition-all duration-300"
+                    block
+                  >
+                    Admin
+                  </Button>
+                  <Button 
+                    icon={<UserAddOutlined />}
+                    onClick={loginAsClient}
+                    className="h-12 rounded-xl flex items-center justify-center bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 text-yellow-700 border border-yellow-100 shadow-md hover:shadow-lg transition-all duration-300"
+                    block
+                  >
+                    Client
+                  </Button>
+                </div>
+
+                <div className="text-center">
+                  <Text className="text-gray-500">
+                    Pas encore de compte ? <Link to="/register" className="text-teal-600 hover:text-teal-700 font-medium transition-colors duration-300">S'inscrire</Link>
                   </Text>
                 </div>
-              ))}
+              </Form>
             </div>
-          </div>
+          </Card>
         </div>
-      </div>
-
-      {/* Enhanced Footer */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-center">
-        <Text className="text-gray-500 text-sm font-medium">
-          © 2024 ERP Pro. Tous droits réservés. | 
-          <span className="text-teal-600 ml-1 cursor-pointer hover:text-teal-700 hover:underline">
-            Politique de confidentialité
-          </span>
-        </Text>
       </div>
     </div>
   );

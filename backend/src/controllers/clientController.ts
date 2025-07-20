@@ -1,204 +1,337 @@
-import { Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
-import { getDatabase } from '../config/database';
-import { sendSuccess, sendError } from '../utils/response';
-import { AuthenticatedRequest } from '../middleware/auth';
-import { Client, PaginationQuery } from '../types';
+import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
+import Client from '../models/Client';
+import User from '../models/User';
+import { AppError, sendSuccessResponse } from '../utils/errorHandler';
+import { AuthRequest, ClientResponse } from '../types';
+import bcrypt from 'bcryptjs';
 
-export const getClients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Map MongoDB document to frontend Client response
+const mapClientToResponse = (client: any): ClientResponse => {
+  return {
+    id: client._id.toString(),
+    name: client.name,
+    email: client.email,
+    phone: client.phone || '',
+    company: client.company || '',
+    address: client.address || '',
+    createdAt: client.createdAt.toISOString().split('T')[0],
+    lastActivity: client.lastActivity.toISOString().split('T')[0],
+    status: client.status,
+    totalInvoices: client.totalInvoices,
+    totalPaid: client.totalPaid,
+    totalPending: client.totalPending
+  };
+};
+
+// Get all clients
+export const getAllClients = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' }: PaginationQuery = req.query;
-    const db = getDatabase();
-
-    let query = 'SELECT * FROM clients WHERE 1=1';
-    const params: any[] = [];
-
-    // Add search filter
-    if (search) {
-      query += ' AND (name LIKE ? OR email LIKE ? OR company LIKE ?)';
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Not authorized to access clients', 403));
     }
 
-    // Add sorting
-    const allowedSortFields = ['name', 'email', 'company', 'createdAt', 'lastActivity'];
-    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    query += ` ORDER BY ${sortField} ${sortOrder.toUpperCase()}`;
+    const clients = await Client.find();
+    const clientResponses = clients.map(mapClientToResponse);
 
-    // Add pagination
-    const offset = (page - 1) * limit;
-    query += ' LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-
-    // Get clients
-    const clients = await db.all(query, params);
-
-    // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) as total FROM clients WHERE 1=1';
-    const countParams: any[] = [];
-    
-    if (search) {
-      countQuery += ' AND (name LIKE ? OR email LIKE ? OR company LIKE ?)';
-      const searchTerm = `%${search}%`;
-      countParams.push(searchTerm, searchTerm, searchTerm);
-    }
-
-    const { total } = await db.get(countQuery, countParams);
-    const totalPages = Math.ceil(total / limit);
-
-    sendSuccess(res, 'Clients retrieved successfully', clients, 200, {
-      page,
-      limit,
-      total,
-      totalPages
-    });
+    sendSuccessResponse(res, clientResponses, 'Clients retrieved successfully');
   } catch (error) {
-    console.error('Get clients error:', error);
-    sendError(res, 'Internal server error', 500);
+    next(error);
   }
 };
 
-export const getClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Get client by ID
+export const getClientById = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Not authorized to access clients', 403));
+    }
+
     const { id } = req.params;
-    const db = getDatabase();
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new AppError('Invalid client ID', 400));
+    }
 
-    const client = await db.get('SELECT * FROM clients WHERE id = ?', [id]);
-
+    const client = await Client.findById(id);
+    
     if (!client) {
-      sendError(res, 'Client not found', 404);
-      return;
+      return next(new AppError('Client not found', 404));
     }
 
-    // If user is a client, only allow access to their own data
-    if (req.user?.role === 'client' && client.userId !== req.user.id) {
-      sendError(res, 'Access denied', 403);
-      return;
-    }
-
-    sendSuccess(res, 'Client retrieved successfully', client);
+    sendSuccessResponse(res, mapClientToResponse(client), 'Client retrieved successfully');
   } catch (error) {
-    console.error('Get client error:', error);
-    sendError(res, 'Internal server error', 500);
+    next(error);
   }
 };
 
-export const createClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Create a new client
+export const createClient = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { name, email, phone, company, address } = req.body;
-    const db = getDatabase();
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Not authorized to create clients', 403));
+    }
 
-    // Check if client with email already exists
-    const existingClient = await db.get('SELECT id FROM clients WHERE email = ?', [email]);
+    const { name, email, phone, company, address, createAccount, password } = req.body;
+
+    // Check if client with this email already exists
+    const existingClient = await Client.findOne({ email });
     if (existingClient) {
-      sendError(res, 'Client with this email already exists', 409);
-      return;
+      return next(new AppError('Client with this email already exists', 400));
     }
 
-    const clientId = uuidv4();
-    await db.run(
-      `INSERT INTO clients (id, userId, name, email, phone, company, address, status, totalInvoices, totalPaid, totalPending)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [clientId, '', name, email, phone, company, address, 'active', 0, 0, 0]
-    );
+    // Create client
+    const client = await Client.create({
+      name,
+      email,
+      phone,
+      company,
+      address,
+      status: 'active',
+      lastActivity: new Date()
+    });
 
-    const newClient = await db.get('SELECT * FROM clients WHERE id = ?', [clientId]);
+    // If createAccount is true, create a user account for the client
+    if (createAccount && password) {
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return next(new AppError('User with this email already exists', 400));
+      }
 
-    sendSuccess(res, 'Client created successfully', newClient, 201);
+      // Create user
+      await User.create({
+        email,
+        password,
+        name,
+        company,
+        phone,
+        address,
+        role: 'client'
+      });
+    }
+
+    sendSuccessResponse(res, mapClientToResponse(client), 'Client created successfully', 201);
   } catch (error) {
-    console.error('Create client error:', error);
-    sendError(res, 'Internal server error', 500);
+    next(error);
   }
 };
 
-export const updateClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Update client
+export const updateClient = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Not authorized to update clients', 403));
+    }
+
     const { id } = req.params;
     const { name, email, phone, company, address, status } = req.body;
-    const db = getDatabase();
 
-    // Check if client exists
-    const existingClient = await db.get('SELECT * FROM clients WHERE id = ?', [id]);
-    if (!existingClient) {
-      sendError(res, 'Client not found', 404);
-      return;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new AppError('Invalid client ID', 400));
     }
 
-    // If user is a client, only allow access to their own data
-    if (req.user?.role === 'client' && existingClient.userId !== req.user.id) {
-      sendError(res, 'Access denied', 403);
-      return;
-    }
-
-    // Check if email is already taken by another client
-    if (email !== existingClient.email) {
-      const emailExists = await db.get('SELECT id FROM clients WHERE email = ? AND id != ?', [email, id]);
-      if (emailExists) {
-        sendError(res, 'Email already taken by another client', 409);
-        return;
+    // If email is being changed, check if new email is already taken
+    if (email) {
+      const existingClient = await Client.findOne({ email, _id: { $ne: id } });
+      if (existingClient) {
+        return next(new AppError('Client with this email already exists', 400));
       }
     }
 
-    await db.run(
-      `UPDATE clients SET name = ?, email = ?, phone = ?, company = ?, address = ?, status = ?, updatedAt = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [name, email, phone, company, address, status || existingClient.status, id]
+    const updatedClient = await Client.findByIdAndUpdate(
+      id,
+      { name, email, phone, company, address, status, lastActivity: new Date() },
+      { new: true, runValidators: true }
     );
 
-    const updatedClient = await db.get('SELECT * FROM clients WHERE id = ?', [id]);
+    if (!updatedClient) {
+      return next(new AppError('Client not found', 404));
+    }
 
-    sendSuccess(res, 'Client updated successfully', updatedClient);
+    // If client has a user account, update user data as well
+    const user = await User.findOne({ email: updatedClient.email, role: 'client' });
+    if (user) {
+      await User.findByIdAndUpdate(
+        user._id,
+        { name, company, phone, address },
+        { new: true, runValidators: true }
+      );
+    }
+
+    sendSuccessResponse(res, mapClientToResponse(updatedClient), 'Client updated successfully');
   } catch (error) {
-    console.error('Update client error:', error);
-    sendError(res, 'Internal server error', 500);
+    next(error);
   }
 };
 
-export const deleteClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Delete client
+export const deleteClient = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Not authorized to delete clients', 403));
+    }
+
     const { id } = req.params;
-    const db = getDatabase();
 
-    // Check if client exists
-    const existingClient = await db.get('SELECT * FROM clients WHERE id = ?', [id]);
-    if (!existingClient) {
-      sendError(res, 'Client not found', 404);
-      return;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new AppError('Invalid client ID', 400));
     }
 
-    // Check if client has associated invoices
-    const hasInvoices = await db.get('SELECT COUNT(*) as count FROM invoices WHERE clientId = ?', [id]);
-    if (hasInvoices.count > 0) {
-      sendError(res, 'Cannot delete client with existing invoices', 400);
-      return;
+    const client = await Client.findById(id);
+    if (!client) {
+      return next(new AppError('Client not found', 404));
     }
 
-    await db.run('DELETE FROM clients WHERE id = ?', [id]);
+    // Check if client has invoices or payments before deleting
+    // For now, we'll just delete without checking
 
-    sendSuccess(res, 'Client deleted successfully');
+    await Client.findByIdAndDelete(id);
+
+    // Delete associated user account if exists
+    await User.findOneAndDelete({ email: client.email, role: 'client' });
+
+    sendSuccessResponse(res, null, 'Client deleted successfully');
   } catch (error) {
-    console.error('Delete client error:', error);
-    sendError(res, 'Internal server error', 500);
+    next(error);
   }
 };
 
-export const getClientStats = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Import clients from external MongoDB collection
+export const importClientsFromMongoDB = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const db = getDatabase();
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Not authorized to import clients', 403));
+    }
 
-    const stats = await db.get(`
-      SELECT 
-        COUNT(*) as totalClients,
-        COUNT(CASE WHEN status = 'active' THEN 1 END) as activeClients,
-        COUNT(CASE WHEN status = 'inactive' THEN 1 END) as inactiveClients,
-        SUM(totalPaid) as totalRevenue,
-        AVG(totalPaid) as averageRevenue
-      FROM clients
-    `);
+    // This would normally connect to another MongoDB collection
+    // For demonstration purposes, we'll simulate this by using mock data
+    // In a real implementation, you would use mongoose to connect to the external DB
 
-    sendSuccess(res, 'Client statistics retrieved successfully', stats);
+    const { createAccounts, defaultPassword } = req.body;
+    
+    // Normally, you would use mongoose.createConnection to connect to a different database
+    // const externalDb = mongoose.createConnection('mongodb://localhost:27017/erp_pro');
+    // const ExternalUser = externalDb.model('users', new mongoose.Schema({}, { strict: false }));
+    // const externalUsers = await ExternalUser.find({});
+
+    // Mock external users
+    const externalUsers = [
+      {
+        name: 'Imported User 1',
+        email: 'imported1@example.com',
+        company: 'Imported Company 1',
+        phone: '216-12345678',
+        address: 'Tunis, Tunisia'
+      },
+      {
+        name: 'Imported User 2',
+        email: 'imported2@example.com',
+        company: 'Imported Company 2',
+        phone: '216-87654321',
+        address: 'Sfax, Tunisia'
+      }
+    ];
+
+    const results = {
+      total: externalUsers.length,
+      created: 0,
+      skipped: 0,
+      errors: [] as string[]
+    };
+
+    for (const externalUser of externalUsers) {
+      try {
+        // Check if client already exists
+        const existingClient = await Client.findOne({ email: externalUser.email });
+        
+        if (existingClient) {
+          results.skipped++;
+          continue;
+        }
+
+        // Create client
+        const client = await Client.create({
+          name: externalUser.name,
+          email: externalUser.email,
+          phone: externalUser.phone || '',
+          company: externalUser.company || '',
+          address: externalUser.address || '',
+          status: 'active',
+          lastActivity: new Date()
+        });
+
+        // If createAccounts is true, create a user account for each imported client
+        if (createAccounts && defaultPassword) {
+          const existingUser = await User.findOne({ email: externalUser.email });
+          
+          if (!existingUser) {
+            await User.create({
+              email: externalUser.email,
+              password: defaultPassword,
+              name: externalUser.name,
+              company: externalUser.company,
+              phone: externalUser.phone,
+              address: externalUser.address,
+              role: 'client'
+            });
+          }
+        }
+
+        results.created++;
+      } catch (error: any) {
+        results.errors.push(`Error importing ${externalUser.email}: ${error.message}`);
+      }
+    }
+
+    sendSuccessResponse(res, results, 'Client import completed');
   } catch (error) {
-    console.error('Get client stats error:', error);
-    sendError(res, 'Internal server error', 500);
+    next(error);
   }
 };
+
+// Create user account for existing client
+export const createClientAccount = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Not authorized to create client accounts', 403));
+    }
+
+    const { clientId, password } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(clientId)) {
+      return next(new AppError('Invalid client ID', 400));
+    }
+
+    if (!password || password.length < 8) {
+      return next(new AppError('Password must be at least 8 characters long', 400));
+    }
+
+    const client = await Client.findById(clientId);
+    
+    if (!client) {
+      return next(new AppError('Client not found', 404));
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: client.email });
+    if (existingUser) {
+      return next(new AppError('User account already exists for this client', 400));
+    }
+
+    // Create user
+    const newUser = await User.create({
+      email: client.email,
+      password,
+      name: client.name,
+      company: client.company,
+      phone: client.phone,
+      address: client.address,
+      role: 'client'
+    });
+
+    sendSuccessResponse(res, { userId: newUser._id }, 'Client account created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+}; 

@@ -1,69 +1,59 @@
-import { Request, Response, NextFunction } from 'express';
-import { verifyToken, extractTokenFromHeader } from '../utils/auth';
-import { sendError } from '../utils/response';
-import { getDatabase } from '../config/database';
+import { Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { AppError } from '../utils/errorHandler';
+import { AuthRequest } from '../types';
+import User from '../models/User';
 
-export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    name: string;
-  };
-}
-
-export const authenticate = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+// Protect routes - verify JWT token
+export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const token = extractTokenFromHeader(req.headers.authorization);
-    
+    // 1) Get token from headers
+    let token: string | undefined;
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith('Bearer')) {
+      token = authHeader.split(' ')[1];
+    }
+
+    // Check if token exists
     if (!token) {
-      sendError(res, 'Access token required', 401);
-      return;
+      return next(new AppError('You are not logged in. Please log in to get access.', 401));
     }
 
-    const decoded = verifyToken(token);
-    
-    // Verify user still exists and is active
-    const db = getDatabase();
-    const user = await db.get(
-      'SELECT id, email, role, name, isActive FROM users WHERE id = ?',
-      [decoded.id]
-    );
+    // 2) Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key_here') as jwt.JwtPayload;
 
-    if (!user || !user.isActive) {
-      sendError(res, 'User not found or inactive', 401);
-      return;
+    // 3) Check if user still exists
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return next(new AppError('The user belonging to this token no longer exists.', 401));
     }
 
+    // Grant access to protected route
     req.user = {
-      id: user.id,
+      id: user._id.toString(),
       email: user.email,
-      role: user.role,
-      name: user.name
+      role: user.role
     };
-
     next();
   } catch (error) {
-    sendError(res, 'Invalid or expired token', 401);
+    next(new AppError('Authentication failed. Please log in again.', 401));
   }
 };
 
-export const authorize = (...roles: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+// Role-based authorization
+export const restrictTo = (...roles: string[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    // Check if user exists on request
     if (!req.user) {
-      sendError(res, 'Authentication required', 401);
-      return;
+      return next(new AppError('You are not logged in. Please log in to get access.', 401));
     }
-
+    
+    // Check if user has required role
     if (!roles.includes(req.user.role)) {
-      sendError(res, 'Insufficient permissions', 403);
-      return;
+      return next(new AppError('You do not have permission to perform this action', 403));
     }
 
     next();
   };
-};
+}; 

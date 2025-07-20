@@ -60,10 +60,10 @@ const SettingsPage: React.FC = () => {
               </Form.Item>
 
               <Form.Item name="currency" label="Devise">
-                <Select>
-                  <Option value="EUR">Euro (€)</Option>
+                <Select defaultValue="TND" style={{ width: '100%' }}>
+                  <Option value="TND">Dinar Tunisien (TND)</Option>
                   <Option value="USD">Dollar US ($)</Option>
-                  <Option value="GBP">Livre Sterling (£)</Option>
+                  <Option value="EUR">Euro (€)</Option>
                 </Select>
               </Form.Item>
 

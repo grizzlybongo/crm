@@ -103,7 +103,7 @@ const PaymentsPage: React.FC = () => {
       key: 'amount',
       render: (amount: number) => (
         <Text strong style={{ color: '#52c41a', fontSize: '16px' }}>
-          {amount.toLocaleString()} €
+          {amount.toLocaleString()} TND
         </Text>
       ),
       sorter: (a: Payment, b: Payment) => a.amount - b.amount,
@@ -182,7 +182,7 @@ const PaymentsPage: React.FC = () => {
             <Statistic 
               title="Total encaissé" 
               value={totalPayments} 
-              suffix="€"
+              suffix="TND"
               prefix={<DollarOutlined />}
               valueStyle={{ color: '#52c41a' }}
             />
@@ -193,7 +193,7 @@ const PaymentsPage: React.FC = () => {
             <Statistic 
               title="Ce mois" 
               value={thisMonthPayments} 
-              suffix="€"
+              suffix="TND"
               valueStyle={{ color: '#1890ff' }}
             />
           </Card>
@@ -283,7 +283,7 @@ const PaymentsPage: React.FC = () => {
                 <Select placeholder="Sélectionner une facture">
                   {invoices.filter(inv => inv.status !== 'paid').map(invoice => (
                     <Option key={invoice.id} value={invoice.id}>
-                      {invoice.number} - {invoice.clientName} ({invoice.total.toLocaleString()} €)
+                      {invoice.number} - {invoice.clientName} ({invoice.total.toLocaleString()} TND)
                     </Option>
                   ))}
                 </Select>
@@ -311,8 +311,7 @@ const PaymentsPage: React.FC = () => {
                   style={{ width: '100%' }}
                   min={0}
                   formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                  addonAfter="€"
+                  addonAfter="TND"
                 />
               </Form.Item>
             </Col>

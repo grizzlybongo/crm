@@ -107,7 +107,7 @@ const QuotesPage: React.FC = () => {
       key: 'total',
       render: (amount: number) => (
         <Text strong style={{ color: '#52c41a' }}>
-          {amount.toLocaleString()} €
+          {amount.toLocaleString()} TND
         </Text>
       ),
     },
@@ -363,7 +363,7 @@ const QuotesPage: React.FC = () => {
                           const total = (item?.quantity || 0) * (item?.unitPrice || 0);
                           return (
                             <Input 
-                              value={`${total.toLocaleString()} €`} 
+                              value={`${total.toLocaleString()} TND`} 
                               disabled 
                               style={{ textAlign: 'right' }}
                             />

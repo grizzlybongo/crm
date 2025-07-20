@@ -1,7 +1,8 @@
-import React from 'react';
-import { useSelector } from 'react-redux';
+import React, { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Navigate, useLocation } from 'react-router-dom';
 import { RootState } from '../../store';
+import { getCurrentUser } from '../../store/slices/authSlice';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,17 +10,30 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, role }) => {
-  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, user, token, loading } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
+  const dispatch = useDispatch();
 
-  // Si l'utilisateur n'est pas authentifié, rediriger vers login
+  // Fetch user data if we have token but no user
+  useEffect(() => {
+    if (token && !user && !loading) {
+      dispatch(getCurrentUser() as any);
+    }
+  }, [dispatch, token, user, loading]);
+
+  // Show loading if we're checking authentication
+  if (loading) {
+    return <div>Loading...</div>; // Optionally replace with a proper loading component
+  }
+
+  // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Si un rôle spécifique est requis et que l'utilisateur n'a pas ce rôle
+  // If a specific role is required and the user doesn't have it
   if (role && user?.role !== role) {
-    // Rediriger vers le dashboard approprié selon le rôle de l'utilisateur
+    // Redirect to the appropriate dashboard based on user role
     const redirectPath = user?.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
     return <Navigate to={redirectPath} replace />;
   }

@@ -1,137 +1,160 @@
-# ERP/CRM System avec Vitrine Intégrée
+# CRM/ERP System
 
-## Description
+A comprehensive CRM/ERP system with client management, invoicing, messaging, document management, and payment tracking.
 
-Application ERP/CRM complète avec une vitrine statique intégrée, développée avec React, TypeScript, et Ant Design. Le système comprend une page d'accueil vitrine et un système de gestion complet pour les entreprises.
+## Features
 
-## Structure du Projet
+- **Authentication**: Secure user authentication with MongoDB and JWT
+- **Client Management**: Track clients, contact information, and activity
+- **Invoicing**: Create, manage, and track invoices and payments
+- **Messaging**: In-app messaging system between administrators and clients
+- **Document Management**: Cloud-based document storage and management
+- **Payment Tracking**: Track client payments and outstanding balances
 
-```
-src/
-├── components/
-│   ├── auth/
-│   │   └── LoginPage.tsx          # Page de connexion
-│   ├── pages/
-│   │   ├── VitrinePage.tsx        # Page vitrine d'accueil
-│   │   └── VitrinePage.css                # Styles de la vitrine
-│   ├── routing/
-│   │   ├── AppRouter.tsx          # Configuration des routes
-│   │   └── ProtectedRoute.tsx     # Protection des routes
-│   └── layout/
-│       ├── AdminLayout.tsx        # Layout administrateur
-│       └── ClientLayout.tsx       # Layout client
-├── store/                         # Redux store et slices
-└── theme/                         # Configuration thème Ant Design
-```
+## Tech Stack
 
-## Routes Principales
+- **Frontend**: React with TypeScript, Ant Design, and TailwindCSS
+- **Backend**: Express.js with TypeScript
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JWT-based authentication with bcrypt password hashing
 
-- `/` - Page vitrine d'accueil (VitrinePage)
-- `/login` - Page de connexion
-- `/admin/*` - Interface administrateur (protégée)
-- `/client/*` - Interface client (protégée)
+## Getting Started
 
-## Navigation
+### Prerequisites
 
-### Depuis la Vitrine vers le CRM
-- Le bouton "Se connecter" dans la vitrine redirige vers `/login`
-- Après connexion, redirection automatique selon le rôle utilisateur
+- Node.js (v14+)
+- MongoDB (local or Atlas)
+- npm or yarn
 
-### Depuis le CRM vers la Vitrine
-- Lien "Retour à l'accueil" disponible sur la page de connexion
-- Redirection vers la page vitrine (`/`)
+### Installation
 
-## Assets et Images
-
-### Placement des Assets
-- Logo temporaire : `public/cmt-logo-temp.png`
-- Images externes : URLs Pexels et autres CDN
-- Icônes : Font Awesome (inclus via CDN)
-
-### Polices
-- Google Fonts : Merriweather, Open Sans, Poppins
-- Font Awesome pour les icônes
-
-## Installation et Lancement
+1. **Clone the repository**
 
 ```bash
-# Installation des dépendances
+git clone https://github.com/yourusername/crm-system.git
+cd crm-system
+```
+
+2. **Install dependencies**
+
+```bash
+# Install frontend dependencies
 npm install
 
-#Lancement en développement
+# Install backend dependencies
+cd backend
+npm install
+```
+
+3. **Set up environment variables**
+
+Run the script to generate a secure .env file for the backend:
+
+```bash
+cd backend
+node create-env.js
+```
+
+This will create a `.env` file with a secure JWT secret. You should update the MongoDB URI to point to your MongoDB instance.
+
+4. **Run the application**
+
+```bash
+# Start the frontend and backend concurrently
 npm run dev
 
-# Build pour production
-npm run build
+# Or start them separately
+# Frontend
+npm run dev
+
+# Backend (in a separate terminal)
+npm run backend
 ```
 
-## Fonctionnalités de la Vitrine
+## Authentication System
 
-- **Design Responsive** : Adaptation mobile et desktop
-- **Carousel Hero** : Diaporama automatique avec contrôles
-- **Sections Services** : Présentation des services avec détails extensibles
-- **Statistiques Animées** : Compteurs animés au scroll
-- **Formulaire Contact** : Formulaire de contact fonctionnel
-- **Navigation Fluide** : Scroll smooth entre sections
+The application uses a MongoDB-based authentication system with the following features:
 
-## Fonctionnalités CRM
+- **Secure Password Storage**: Passwords are hashed using bcrypt before storage
+- **JWT-based Authentication**: JSON Web Tokens for secure, stateless authentication
+- **Role-based Access Control**: Different permissions for admin and client users
+- **API Rate Limiting**: Protection against brute-force attacks
+- **Secure HTTP Headers**: Using helmet for additional security
 
-- **Authentification** : Système de login avec rôles
-- **Dashboard Admin** : Gestion complète des données
-- **Dashboard Client** : Interface client simplifiée
-- **Gestion** : Clients, factures, de devis, paiements
-- **Messagerie** : Communication interne
-- **Rapports** : Statistiques et analyses
+### Authentication Flow
 
-## Identifiants de Démonstration
+1. **Registration**: Users can register with email, password, name, and optional company details
+2. **Login**: Users can login with email and password to receive a JWT token
+3. **Session Management**: Frontend stores the token in localStorage for persistence
+4. **API Authentication**: All protected API routes verify the JWT token
+5. **Role Authorization**: Certain routes are restricted based on user roles
 
-### Administrateur
-- Email : `admin@erp.com`
-- Mot de passe : `admin123`
+### User Schema in MongoDB
+
+The User model includes:
+
+- **email**: User's email address (unique)
+- **password**: Hashed password (never returned in queries)
+- **name**: User's full name
+- **role**: Either 'admin' or 'client'
+- **company**: Optional company name
+- **avatar**: Optional URL to user's avatar
+- **timestamps**: createdAt and updatedAt fields for tracking
+
+## API Documentation
+
+### Authentication Endpoints
+
+- **POST** `/api/auth/register`: Register a new user
+- **POST** `/api/auth/login`: Login and get JWT token
+- **GET** `/api/auth/me`: Get current user details (requires authentication)
+
+## MongoDB Schema
+
+The application uses MongoDB with Mongoose ODM for data storage. Here's an overview of the main data models:
+
+### User
+
+- **_id**: MongoDB ObjectId (unique identifier)
+- **email**: User email (unique)
+- **password**: Hashed password (bcrypt)
+- **name**: User's full name
+- **role**: 'admin' or 'client'
+- **company**: Company name (optional)
+- **avatar**: User avatar URL (optional)
+- **createdAt**: Creation timestamp (automatic)
+- **updatedAt**: Last update timestamp (automatic)
 
 ### Client
-- Email : `jean.dupont@email.com`
-- Mot de passe : `client123`
 
-## Technologies Utilisées
+- **_id**: MongoDB ObjectId (unique identifier)
+- **name**: Client's full name
+- **email**: Client's email
+- **phone**: Client's phone number
+- **company**: Client's company name
+- **address**: Client's address
+- **status**: 'active' or 'inactive'
+- **createdBy**: User ID who created the client
+- **createdAt**: Creation timestamp
+- **updatedAt**: Last update timestamp
 
-- **Frontend** : React 18, TypeScript
-- **UI Framework** : Ant Design
-- **Styling** : CSS personnalisé + Tailwind CSS
-- **State Management** : Redux Toolkit
-- **Routing** : React Router DOM
-- **Icons** : Lucide React + Font Awesome
-- **Build Tool** : Vite
+### Invoice
 
-## Personnalisation
+- **_id**: MongoDB ObjectId (unique identifier)
+- **number**: Invoice number (unique)
+- **client**: Reference to Client model
+- **date**: Invoice date
+- **dueDate**: Invoice due date
+- **status**: 'draft', 'sent', 'paid', 'partial', 'overdue', or 'cancelled'
+- **items**: Array of line items
+- **subtotal**: Invoice subtotal
+- **tax**: Tax amount
+- **total**: Total amount
+- **notes**: Additional notes (optional)
+- **createdBy**: User ID who created the invoice
+- **createdAt**: Creation timestamp
+- **updatedAt**: Last update timestamp
 
-### Modification du Logo
-Remplacez `public/cmt-logo-temp.png` par votre logo final.
+## License
 
-### Couleurs et Thème
-Les variables CSS sont définies dans `VitrinePage.css` :
-```css
-:root {
-  --color-accent: #4a6b6a;
-  --color-sand: #d9c9ac;
-  --color-bg-light: #f3f2ef;
-  /* ... autres variables */
-}
-```
-
-### Contenu de la Vitrine
-Modifiez le contenu dans `VitrinePage.tsx` :
-- Textes des sections
-- Images et liens
-- Informations de contact
-- Services proposés
-
-## Support et Maintenance
-
-Le code est organisé de manière modulaire pour faciliter la maintenance :
-- Composants réutilisables
--Séparation des préoccupations
-- Types TypeScript stricts
-- Documentation inline
-
-Pour toute question ou personnalisation, référez-vous aux commentaires dans le code source.
+This project is licensed under the MIT License - see the LICENSE file for details.

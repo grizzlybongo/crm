@@ -1,32 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Avatar, Upload, message, Row, Col, Typography, Divider } from 'antd';
 import { UserOutlined, CameraOutlined, SaveOutlined } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../store';
+import { updateProfile, updateAvatar } from '../../../store/slices/authSlice';
+import { AppDispatch } from '../../../store';
 
 const { Title, Text } = Typography;
 
 const ProfilePage: React.FC = () => {
-  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, loading } = useSelector((state: RootState) => state.auth);
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
+  useEffect(() => {
+    // Reset form with user data when user changes
+    if (user) {
+      form.setFieldsValue({
+        name: user.name,
+        email: user.email,
+        company: user.company,
+        phone: user.phone || '',
+        address: user.address || '',
+      });
+    }
+  }, [form, user]);
 
   const handleSubmit = async (values: any) => {
-    setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await dispatch(updateProfile(values)).unwrap();
       message.success('Profil mis à jour avec succès');
     } catch (error) {
       message.error('Erreur lors de la mise à jour du profil');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleAvatarChange = (info: any) => {
+    if (info.file.status === 'uploading') {
+      setAvatarLoading(true);
+      return;
+    }
+
     if (info.file.status === 'done') {
-      message.success('Photo de profil mise à jour');
+      // Assuming the server returns the URL of the uploaded image
+      const avatarUrl = info.file.response.url;
+      
+      dispatch(updateAvatar({ avatar: avatarUrl }))
+        .unwrap()
+        .then(() => {
+          setAvatarLoading(false);
+          message.success('Photo de profil mise à jour');
+        })
+        .catch(() => {
+          setAvatarLoading(false);
+          message.error('Échec de la mise à jour de la photo de profil');
+        });
+    } else if (info.file.status === 'error') {
+      setAvatarLoading(false);
+      message.error('Échec du téléchargement de l\'image');
+    }
+  };
+
+  // Custom upload handler for avatar
+  const customUploadRequest = async (options: any) => {
+    const { file, onSuccess, onError } = options;
+    
+    // Create a FormData instance
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    try {
+      // Here you would normally upload to your server
+      // For demo, we'll simulate a successful response
+      setTimeout(() => {
+        onSuccess({ url: URL.createObjectURL(file) });
+      }, 1000);
+      
+      // Actual implementation would be:
+      // const response = await fetch('/api/upload', {
+      //   method: 'POST',
+      //   body: formData
+      // });
+      // const data = await response.json();
+      // onSuccess(data);
+    } catch (error) {
+      onError(error);
     }
   };
 
@@ -50,10 +109,10 @@ const ProfilePage: React.FC = () => {
             </div>
             <Upload
               showUploadList={false}
-              beforeUpload={() => false}
+              customRequest={customUploadRequest}
               onChange={handleAvatarChange}
             >
-              <Button icon={<CameraOutlined />}>
+              <Button icon={<CameraOutlined />} loading={avatarLoading}>
                 Changer la photo
               </Button>
             </Upload>
@@ -64,7 +123,7 @@ const ProfilePage: React.FC = () => {
               <div>
                 <Text type="secondary">Rôle</Text>
                 <br />
-                <Text strong>Administrateur</Text>
+                <Text strong>{user?.role === 'admin' ? 'Administrateur' : 'Client'}</Text>
               </div>
               <div>
                 <Text type="secondary">Statut</Text>

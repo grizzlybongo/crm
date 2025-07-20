@@ -143,7 +143,7 @@ const ClientDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <div className="stat-title">À payer</div>
-              <div className="stat-value">{pendingAmount.toLocaleString()} €</div>
+              <div className="stat-value">{pendingAmount.toLocaleString()} TND</div>
               <div className="stat-change">
                 <DollarOutlined /> Échéances proches
               </div>
@@ -201,7 +201,7 @@ const ClientDashboard: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <Text strong className="text-gray-800">{invoice.number}</Text>
                         <Text strong className="text-teal-600 text-lg">
-                          {invoice.total.toLocaleString()} €
+                          {invoice.total.toLocaleString()} TND
                         </Text>
                       </div>
                     }
@@ -301,7 +301,7 @@ const ClientDashboard: React.FC = () => {
               <div className="flex justify-between items-center mb-2">
                 <Text className="text-gray-600">Montant payé</Text>
                 <Text strong className="text-teal-600">
-                  {paidAmount.toLocaleString()} € / {totalAmount.toLocaleString()} €
+                  {paidAmount.toLocaleString()} TND / {totalAmount.toLocaleString()} TND
                 </Text>
               </div>
               <Progress 

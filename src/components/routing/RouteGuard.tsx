@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RootState } from '../../store';
-import { authError } from '../../store/slices/authSlice';
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -38,7 +37,6 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
       } catch (error) {
         // Token invalide
         console.warn('Token invalide détecté:', error);
-        dispatch(authError());
         navigate('/login', { replace: true });
         return;
       }
@@ -46,7 +44,6 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 
     // Vérifier la cohérence des données utilisateur
     if (isAuthenticated && !user) {
-      dispatch(authError());
       navigate('/login', { replace: true });
       return;
     }

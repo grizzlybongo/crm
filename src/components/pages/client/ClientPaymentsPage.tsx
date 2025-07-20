@@ -100,8 +100,8 @@ const ClientPaymentsPage: React.FC = () => {
       dataIndex: 'amount',
       key: 'amount',
       render: (amount: number) => (
-        <Text strong style={{ color: '#52c41a', fontSize: '16px' }}>
-          {amount.toLocaleString()} €
+        <Text strong style={{ color: '#52c41a' }}>
+          {amount.toLocaleString()} TND
         </Text>
       ),
       sorter: (a: Payment, b: Payment) => a.amount - b.amount,
@@ -154,10 +154,9 @@ const ClientPaymentsPage: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic 
-              title="Total payé" 
+              title="Total Payé" 
               value={totalPaid} 
-              suffix="€"
-              prefix={<CheckCircleOutlined />}
+              suffix="TND"
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -186,7 +185,7 @@ const ClientPaymentsPage: React.FC = () => {
             <Statistic 
               title="Reste à payer" 
               value={remainingAmount} 
-              suffix="€"
+              suffix="TND"
               valueStyle={{ color: remainingAmount > 0 ? '#ff4d4f' : '#52c41a' }}
             />
           </Card>

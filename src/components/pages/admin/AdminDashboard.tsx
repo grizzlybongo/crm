@@ -8,6 +8,7 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
   EyeOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
@@ -73,7 +74,7 @@ const AdminDashboard: React.FC = () => {
       title: 'Montant',
       dataIndex: 'total',
       key: 'total',
-      render: (amount: number) => `${amount.toLocaleString()} €`,
+      render: (amount: number) => `${amount.toLocaleString()} TND`,
     },
     {
       title: 'Date',
@@ -124,12 +125,11 @@ const AdminDashboard: React.FC = () => {
       <div className="stats-grid">
         <Card className="stat-card revenue">
           <Statistic
-            title={<span className="stat-title">Chiffre d'affaires</span>}
-            value={totalRevenue}
-            precision={0}
-            valueStyle={{ color: '#fff', fontSize: '28px', fontWeight: 'bold' }}
-            prefix={<DollarOutlined />}
-            suffix="€"
+            title="Chiffre d'affaires"
+            value={revenueData.reduce((sum, d) => sum + d.revenue, 0)}
+            prefix={<RiseOutlined />}
+            suffix="TND"
+            valueStyle={{ color: '#3f8600' }}
           />
           <div className="stat-change">
             <ArrowUpOutlined /> +12.5% ce mois
@@ -182,7 +182,7 @@ const AdminDashboard: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip formatter={(value) => [`${value} €`, 'Chiffre d\'affaires']} />
+                <Tooltip formatter={(value) => [`${value} TND`, 'Chiffre d\'affaires']} />
                 <Line type="monotone" dataKey="revenue" stroke="#1890ff" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>

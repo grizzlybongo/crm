@@ -28,7 +28,7 @@ const mockNotifications: Notification[] = [
   {
     id: '2',
     title: 'Paiement reçu',
-    message: 'Paiement de 38 400 € reçu de Jean Dupont',
+    message: 'Paiement de 38 400 TND reçu de Jean Dupont',
     type: 'success',
     timestamp: '2024-01-20T14:30:00Z',
     read: false,

@@ -1,37 +1,29 @@
 import { Router } from 'express';
 import {
-  getClients,
-  getClient,
+  getAllClients,
+  getClientById,
   createClient,
   updateClient,
   deleteClient,
-  getClientStats
+  importClientsFromMongoDB,
+  createClientAccount
 } from '../controllers/clientController';
-import { authenticate, authorize } from '../middleware/auth';
-import { handleValidationErrors } from '../middleware/validation';
-import { validateClient, validatePagination, validateId } from '../utils/validation';
+import { protect, restrictTo } from '../middleware/auth';
 
 const router = Router();
 
-// All routes require authentication
-router.use(authenticate);
+// All client routes require authentication
+router.use(protect);
 
-// Get client statistics (admin only)
-router.get('/stats', authorize('admin'), getClientStats);
+// Most routes are admin-only
+router.get('/', restrictTo('admin'), getAllClients);
+router.post('/', restrictTo('admin'), createClient);
+router.post('/import', restrictTo('admin'), importClientsFromMongoDB);
+router.post('/create-account', restrictTo('admin'), createClientAccount);
 
-// Get all clients with pagination and search
-router.get('/', validatePagination, handleValidationErrors, getClients);
+// Specific client operations
+router.get('/:id', restrictTo('admin'), getClientById);
+router.patch('/:id', restrictTo('admin'), updateClient);
+router.delete('/:id', restrictTo('admin'), deleteClient);
 
-// Get specific client
-router.get('/:id', validateId, handleValidationErrors, getClient);
-
-// Create new client (admin only)
-router.post('/', authorize('admin'), validateClient, handleValidationErrors, createClient);
-
-// Update client
-router.put('/:id', validateId, validateClient, handleValidationErrors, updateClient);
-
-// Delete client (admin only)
-router.delete('/:id', authorize('admin'), validateId, handleValidationErrors, deleteClient);
-
-export default router;
+export default router; 
