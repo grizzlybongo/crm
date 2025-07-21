@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { RootState } from '../../store';
+import React, { useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { useLocation, useNavigate } from "react-router-dom";
+import { RootState } from "../../store";
+import { useSocket } from "../../hooks/useSocket";
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -14,7 +15,12 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, token, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, token, user } = useSelector(
+    (state: RootState) => state.auth
+  );
+
+  // Initialize socket connection for authenticated users
+  useSocket();
 
   useEffect(() => {
     // Vérifier la validité du token si l'utilisateur est supposé être authentifié
@@ -22,7 +28,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
       try {
         // Dans un vrai projet, vous vérifieriez ici la validité du JWT
         // Pour la démo, on accepte le token mock
-        if (token === 'mock-jwt-token') {
+        if (token === "mock-jwt-token") {
           // Token valide pour la démo
         } else {
           // Pour un vrai JWT, décommentez le code ci-dessous
@@ -36,31 +42,31 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
         }
       } catch (error) {
         // Token invalide
-        console.warn('Token invalide détecté:', error);
-        navigate('/login', { replace: true });
+        console.warn("Token invalide détecté:", error);
+        navigate("/login", { replace: true });
         return;
       }
     }
 
     // Vérifier la cohérence des données utilisateur
     if (isAuthenticated && !user) {
-      navigate('/login', { replace: true });
+      navigate("/login", { replace: true });
       return;
     }
 
     // Redirection automatique si l'utilisateur accède à une route inappropriée
     if (isAuthenticated && user) {
       const currentPath = location.pathname;
-      
+
       // Si un admin essaie d'accéder aux routes client
-      if (user.role === 'admin' && currentPath.startsWith('/client')) {
-        navigate('/admin/dashboard', { replace: true });
+      if (user.role === "admin" && currentPath.startsWith("/client")) {
+        navigate("/admin/dashboard", { replace: true });
         return;
       }
-      
+
       // Si un client essaie d'accéder aux routes admin
-      if (user.role === 'client' && currentPath.startsWith('/admin')) {
-        navigate('/client/dashboard', { replace: true });
+      if (user.role === "client" && currentPath.startsWith("/admin")) {
+        navigate("/client/dashboard", { replace: true });
         return;
       }
     }

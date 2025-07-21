@@ -1,15 +1,16 @@
-import { Request } from 'express';
-import { Types } from 'mongoose';
-import { IClient } from '../models/Client';
-import { IInvoice } from '../models/Invoice';
-import { IPayment } from '../models/Payment';
+import { Request } from "express";
+import { Types } from "mongoose";
+import { IClient } from "../models/Client";
+import { IInvoice } from "../models/Invoice";
+import { IPayment } from "../models/Payment";
+import { IMessage } from "../models/Message";
 
 export interface IUser {
   _id: Types.ObjectId;
   email: string;
   password: string;
   name: string;
-  role: 'admin' | 'client';
+  role: "admin" | "client";
   company?: string;
   phone?: string;
   address?: string;
@@ -23,7 +24,7 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    role: 'admin' | 'client';
+    role: "admin" | "client";
   };
 }
 
@@ -32,7 +33,7 @@ export interface LoginResponse {
     id: string;
     email: string;
     name: string;
-    role: 'admin' | 'client';
+    role: "admin" | "client";
     company?: string;
     phone?: string;
     address?: string;
@@ -92,9 +93,49 @@ export interface PaymentResponse {
   notes?: string;
 }
 
+export interface MessageResponse {
+  id: string;
+  senderId: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    role: "admin" | "client";
+  };
+  receiverId: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    role: "admin" | "client";
+  };
+  content: string;
+  messageType: "text" | "file" | "image";
+  fileName?: string;
+  fileUrl?: string;
+  conversationId: string;
+  read: boolean;
+  readAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationResponse {
+  conversationId: string;
+  otherUser: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    role: "admin" | "client";
+  };
+  lastMessage: MessageResponse;
+  unreadCount: number;
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
   data?: T;
   error?: any;
-} 
+}
