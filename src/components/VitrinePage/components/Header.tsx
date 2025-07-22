@@ -15,7 +15,7 @@ const Header: React.FC<HeaderProps> = ({ isScrolled, isHeaderVisible }) => {
       <div className="logo-container">
         <div className="logo-wrapper">
           <img 
-            src="https://images.pexels.com/photos/267350/pexels-photo-267350.jpeg?w=80&h=80&fit=crop" 
+            src="public\cmt-logo-temp.png" 
             alt="CMT Logo" 
             className="header-logo"
           />
@@ -34,19 +34,19 @@ const Header: React.FC<HeaderProps> = ({ isScrolled, isHeaderVisible }) => {
           <div className="contact-icon">
             <Phone size={14} />
           </div>
-          <a href="tel:+33123456789" className="contact-link">01 23 45 67 89</a>
+          <a href="tel:+21694338220" className="contact-link">94338220</a>
         </div>
         <div className="contact-item">
           <div className="contact-icon">
             <Mail size={14} />
           </div>
-          <a href="mailto:contact@cmt-expertise.fr" className="contact-link">contact@cmt-expertise.fr</a>
+          <a href="mailto:contact@cmt-expertise.fr" className="contact-link">contact@cmt.tn</a>
         </div>
         <div className="contact-item">
           <div className="contact-icon">
             <MapPin size={14} />
           </div>
-          <span className="contact-text">Paris, France</span>
+          <span className="contact-text">MONASTIR, TUNISIE</span>
         </div>
       </div>
     </header>

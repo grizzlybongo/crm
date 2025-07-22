@@ -89,7 +89,7 @@ const ContactSection: React.FC<ContactSectionProps> = ({ isVisible }) => {
                 </div>
                 <div className="method-info">
                   <h4>Téléphone</h4>
-                  <p><a href="tel:+33123456789">01 23 45 67 89</a></p>
+                  <p><a href="tel:+21694338220">94338220</a></p>
                 </div>
               </div>
               
@@ -99,7 +99,7 @@ const ContactSection: React.FC<ContactSectionProps> = ({ isVisible }) => {
                 </div>
                 <div className="method-info">
                   <h4>Email</h4>
-                  <p><a href="mailto:contact@cmt-expertise.fr">contact@cmt-expertise.fr</a></p>
+                  <p><a href="mailto:contact@cmt.tn">contact@cmt.tn</a></p>
                 </div>
               </div>
               
@@ -109,7 +109,7 @@ const ContactSection: React.FC<ContactSectionProps> = ({ isVisible }) => {
                 </div>
                 <div className="method-info">
                   <h4>Adresse</h4>
-                  <p>123 Avenue des Champs-Élysées<br />75008 Paris, France</p>
+                  <p>Monastir<br />Monastir, Tunisie</p>
                 </div>
               </div>
               
@@ -126,7 +126,7 @@ const ContactSection: React.FC<ContactSectionProps> = ({ isVisible }) => {
             
             <div className="contact-map">
               <iframe 
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2624.175406982492!2d2.2987139!3d48.870119799999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x47e66fec746d386f%3A0x52f386debc4d4d01!2sAv.%20des%20Champs-%C3%89lys%C3%A9es%2C%2075008%20Paris%2C%20France!5e0!3m2!1sen!2sus!4v1656232141646!5m2!1sen!2sus" 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2933.473272665128!2d10.830032203349582!3d35.76539559083775!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x130212c8d76d9fd7%3A0x8242cb8afd4cbe60!2sQR8H%2B32R%2C%20Monastir!5e0!3m2!1sen!2stn!4v1753097831796!5m2!1sen!2stn" 
                 width="100%" 
                 height="250" 
                 style={{ border: 0, borderRadius: '1rem' }} 

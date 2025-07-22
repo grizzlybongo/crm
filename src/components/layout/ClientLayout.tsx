@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import {
   Routes,
   Route,
@@ -39,13 +39,16 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { logout } from "../../store/slices/authSlice";
 import { markAllAsRead } from "../../store/slices/notificationsSlice";
-
-import ClientDashboard from "../pages/client/ClientDashboard";
-import ClientInvoicesPage from "../pages/client/ClientInvoicesPage";
-import ClientPaymentsPage from "../pages/client/ClientPaymentsPage";
-import ClientAppointmentsPage from "../pages/client/ClientAppointmentsPage";
-import ClientMessagesPage from "../pages/client/ClientMessagesPage";
+import LoadingFallback from "../routing/LoadingFallback";
 import FloatingSupportChat from "../common/FloatingSupportChat";
+
+// Lazy load client pages
+const ClientDashboard = lazy(() => import("../pages/client/ClientDashboard"));
+const ClientInvoicesPage = lazy(() => import("../pages/client/ClientInvoicesPage"));
+const ClientPaymentsPage = lazy(() => import("../pages/client/ClientPaymentsPage"));
+const ClientMessagesPage = lazy(() => import("../pages/client/ClientMessagesPage"));
+const ClientAppointmentsPage = lazy(() => import("../pages/client/ClientAppointmentsPage"));
+const ClientDocumentsPage = lazy(() => import("../pages/client/ClientDocumentsPage"));
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -445,15 +448,18 @@ const ClientLayout: React.FC = () => {
 
         <Content className="p-6 overflow-initial">
           <div className="min-h-screen">
-            <Routes>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<ClientDashboard />} />
-              <Route path="invoices" element={<ClientInvoicesPage />} />
-              <Route path="payments" element={<ClientPaymentsPage />} />
-              <Route path="appointments" element={<ClientAppointmentsPage />} />
-              <Route path="messages" element={<ClientMessagesPage />} />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <Suspense fallback={<LoadingFallback message="Chargement de la page..." />}>
+              <Routes>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<ClientDashboard />} />
+                <Route path="invoices" element={<ClientInvoicesPage />} />
+                <Route path="payments" element={<ClientPaymentsPage />} />
+                <Route path="messages" element={<ClientMessagesPage />} />
+                <Route path="appointments" element={<ClientAppointmentsPage />} />
+                <Route path="documents" element={<ClientDocumentsPage />} />
+                <Route path="*" element={<Navigate to="dashboard" replace />} />
+              </Routes>
+            </Suspense>
           </div>
         </Content>
 

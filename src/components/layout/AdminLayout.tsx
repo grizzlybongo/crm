@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import {
   Routes,
   Route,
@@ -43,19 +43,21 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { logout } from "../../store/slices/authSlice";
 import { markAllAsRead } from "../../store/slices/notificationsSlice";
+import LoadingFallback from "../routing/LoadingFallback";
 
-import AdminDashboard from "../pages/admin/AdminDashboard";
-import ClientsPage from "../pages/admin/ClientsPage";
-import InvoicesPage from "../pages/admin/InvoicesPage";
-import QuotesPage from "../pages/admin/QuotesPage";
-import PaymentsPage from "../pages/admin/PaymentsPage";
-import NewMessagesPage from "../pages/admin/NewMessagesPage";
-import ProfilePage from "../pages/admin/ProfilePage";
-import SettingsPage from "../pages/admin/SettingsPage";
-import SecurityPage from "../pages/admin/SecurityPage";
-import DatabasePage from "../pages/admin/DatabasePage";
-import ApiIntegrationsPage from "../pages/admin/ApiIntegrationsPage";
-import HelpSupportPage from "../pages/admin/HelpSupportPage";
+// Lazy load admin pages
+const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard"));
+const ClientsPage = lazy(() => import("../pages/admin/ClientsPage"));
+const InvoicesPage = lazy(() => import("../pages/admin/InvoicesPage"));
+const QuotesPage = lazy(() => import("../pages/admin/QuotesPage"));
+const PaymentsPage = lazy(() => import("../pages/admin/PaymentsPage"));
+const NewMessagesPage = lazy(() => import("../pages/admin/NewMessagesPage"));
+const ProfilePage = lazy(() => import("../pages/admin/ProfilePage"));
+const SettingsPage = lazy(() => import("../pages/admin/SettingsPage"));
+const SecurityPage = lazy(() => import("../pages/admin/SecurityPage"));
+const DatabasePage = lazy(() => import("../pages/admin/DatabasePage"));
+const ApiIntegrationsPage = lazy(() => import("../pages/admin/ApiIntegrationsPage"));
+const HelpSupportPage = lazy(() => import("../pages/admin/HelpSupportPage"));
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -485,25 +487,27 @@ const AdminLayout: React.FC = () => {
 
         <Content className="p-6 overflow-initial">
           <div className="min-h-screen">
-            <Routes>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="clients" element={<ClientsPage />} />
-              <Route path="invoices" element={<InvoicesPage />} />
-              <Route path="quotes" element={<QuotesPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="messages" element={<NewMessagesPage />} />
-              <Route path="profile" element={<ProfilePage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="security" element={<SecurityPage />} />
-              <Route path="database" element={<DatabasePage />} />
-              <Route
-                path="api-integrations"
-                element={<ApiIntegrationsPage />}
-              />
-              <Route path="help" element={<HelpSupportPage />} />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <Suspense fallback={<LoadingFallback message="Chargement de la page..." />}>
+              <Routes>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="clients" element={<ClientsPage />} />
+                <Route path="invoices" element={<InvoicesPage />} />
+                <Route path="quotes" element={<QuotesPage />} />
+                <Route path="payments" element={<PaymentsPage />} />
+                <Route path="messages" element={<NewMessagesPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="security" element={<SecurityPage />} />
+                <Route path="database" element={<DatabasePage />} />
+                <Route
+                  path="api-integrations"
+                  element={<ApiIntegrationsPage />}
+                />
+                <Route path="help" element={<HelpSupportPage />} />
+                <Route path="*" element={<Navigate to="dashboard" replace />} />
+              </Routes>
+            </Suspense>
           </div>
         </Content>
       </Layout>

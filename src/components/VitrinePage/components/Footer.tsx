@@ -6,10 +6,11 @@ const Footer: React.FC = () => {
     <footer className="main-footer">
       <div className="footer-grid">
         <div className="company-info">
-          <img 
-            src="https://images.pexels.com/photos/267350/pexels-photo-267350.jpeg?w=80&h=80&fit=crop" 
+          <img
+           src="public\cmt-logo-temp.png" 
             alt="CMT Logo" 
             className="footer-logo" 
+            
           />
           <h3 className="footer-heading">CMT Expertise</h3>
           <p className="company-description">
@@ -47,22 +48,22 @@ const Footer: React.FC = () => {
           <div className="contact-list">
             <div className="contact-item">
               <MapPin size={16} />
-              <span>123 Avenue des Champs-Élysées<br />75008 Paris, France</span>
+              <span>Monastir<br />Monastir, Tunisie</span>
             </div>
             <div className="contact-item">
               <Phone size={16} />
-              <a href="tel:+33123456789">01 23 45 67 89</a>
+              <a href="tel:+21694338220">94338220</a>
             </div>
             <div className="contact-item">
               <Mail size={16} />
-              <a href="mailto:contact@cmt-expertise.fr">contact@cmt-expertise.fr</a>
+              <a href="mailto:contact@cmt.tn">contact@cmt.tn</a>
             </div>
           </div>
         </div>
       </div>
       
       <div className="copyright">
-        <p>© 2024 CMT Expertise. Tous droits réservés. | <a href="#">Mentions légales</a> | <a href="#">Politique de confidentialité</a></p>
+        <p>© 2025 CMT Expertise. Tous droits réservés. | <a href="#">Mentions légales</a> | <a href="#">Politique de confidentialité</a></p>
       </div>
     </footer>
   );

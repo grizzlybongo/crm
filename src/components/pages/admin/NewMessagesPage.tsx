@@ -15,6 +15,7 @@ import { SendOutlined, UserOutlined, PlusOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../../../store";
 import { useSocket } from "../../../hooks/useSocket";
+import socketService from "../../../services/socketService";
 import {
   setActiveConversation,
   fetchConversations,
@@ -160,26 +161,18 @@ const MessagesPage: React.FC = () => {
       }
     };
 
-    // Import socketService and add event listeners
-    import("../../../services/socketService").then(
-      ({ default: socketService }) => {
-        socketService.onNewMessage(handleNewMessage);
-        socketService.onMessageSent(({ message }: { message: Message }) => {
-          console.log("✅ Message sent confirmation received:", message);
-          // Handle sent messages the same way as new messages
-          handleNewMessage(message);
-        });
-      }
-    );
+    // Use the already imported socketService
+    socketService.onNewMessage(handleNewMessage);
+    socketService.onMessageSent(({ message }: { message: Message }) => {
+      console.log("✅ Message sent confirmation received:", message);
+      // Handle sent messages the same way as new messages
+      handleNewMessage(message);
+    });
 
     return () => {
       // Cleanup listeners
-      import("../../../services/socketService").then(
-        ({ default: socketService }) => {
-          socketService.off("message:new");
-          socketService.off("message:sent");
-        }
-      );
+      socketService.off("message:new");
+      socketService.off("message:sent");
     };
   }, [activeConversation, user, dispatch]);
 

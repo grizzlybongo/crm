@@ -167,14 +167,14 @@ const LoginPage: React.FC = () => {
               </div>
               <div>
                 <Title level={1} className="!text-5xl !font-bold !text-gray-800 !mb-3 !leading-tight">
-                  ERP Pro
+                  CRM Pro
                 </Title>
                 <div className="flex items-center">
                   <Text className="text-xl text-gray-600 font-medium">
                     Solution de gestion d'entreprise nouvelle génération
                   </Text>
                   <span className="ml-3 px-3 py-1 bg-teal-100 text-teal-800 text-xs font-bold rounded-full">
-                    Version 2.0
+                    Version 1.0
                   </span>
                 </div>
               </div>
@@ -245,7 +245,7 @@ const LoginPage: React.FC = () => {
               <div className="text-center mb-8">
                 <Title level={2} className="!text-gray-800 !mb-3">Connexion</Title>
                 <Text className="text-gray-500">
-                  Accédez à votre tableau de bord ERP Pro
+                  Accédez à votre tableau de bord CRM Pro
                 </Text>
               </div>
 
@@ -309,40 +309,6 @@ const LoginPage: React.FC = () => {
                   </Button>
                 </Form.Item>
 
-                <div className="text-center mb-6">
-                  <Link to="/forgot-password" className="text-teal-600 hover:text-teal-700 transition-colors duration-300">
-                    Mot de passe oublié ?
-                  </Link>
-                </div>
-
-                <Divider className="!mb-6">
-                  <span className="text-gray-400 text-sm px-4">Ou accès rapide</span>
-                </Divider>
-
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <Button 
-                    icon={<CrownOutlined />} 
-                    onClick={loginAsAdmin}
-                    className="h-12 rounded-xl flex items-center justify-center bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-indigo-700 border border-indigo-100 shadow-md hover:shadow-lg transition-all duration-300"
-                    block
-                  >
-                    Admin
-                  </Button>
-                  <Button 
-                    icon={<UserAddOutlined />}
-                    onClick={loginAsClient}
-                    className="h-12 rounded-xl flex items-center justify-center bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 text-yellow-700 border border-yellow-100 shadow-md hover:shadow-lg transition-all duration-300"
-                    block
-                  >
-                    Client
-                  </Button>
-                </div>
-
-                <div className="text-center">
-                  <Text className="text-gray-500">
-                    Pas encore de compte ? <Link to="/register" className="text-teal-600 hover:text-teal-700 font-medium transition-colors duration-300">S'inscrire</Link>
-                  </Text>
-                </div>
               </Form>
             </div>
           </Card>
