@@ -15,12 +15,12 @@ const mapClientToResponse = (client: any): ClientResponse => {
     phone: client.phone || '',
     company: client.company || '',
     address: client.address || '',
-    createdAt: client.createdAt.toISOString().split('T')[0],
-    lastActivity: client.lastActivity.toISOString().split('T')[0],
+    createdAt: client.createdAt ? client.createdAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    lastActivity: client.lastActivity ? client.lastActivity.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     status: client.status,
-    totalInvoices: client.totalInvoices,
-    totalPaid: client.totalPaid,
-    totalPending: client.totalPending
+    totalInvoices: client.totalInvoices || 0,
+    totalPaid: client.totalPaid || 0,
+    totalPending: client.totalPending || 0
   };
 };
 
@@ -31,8 +31,30 @@ export const getAllClients = async (req: AuthRequest, res: Response, next: NextF
       return next(new AppError('Not authorized to access clients', 403));
     }
 
-    const clients = await Client.find();
-    const clientResponses = clients.map(mapClientToResponse);
+    // Fetch clients from the users collection where role is 'client'
+    const clients = await User.find({ role: 'client' });
+    
+    // Map the user data to client response format
+    const clientResponses = clients.map((user: any) => ({
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      phone: user.phone || '',
+      company: user.company || '',
+      address: user.address || '',
+      dossier_number: user.dossier_number,
+      tax_number: user.tax_number,
+      cnss: user.cnss,
+      nature: user.nature,
+      regime_fiscal: user.regime_fiscal,
+      gerants: user.gerants || [],
+      status: user.status || 'active',
+      createdAt: user.createdAt ? user.createdAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      lastActivity: user.updatedAt ? user.updatedAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      totalInvoices: 0, // Will be calculated from invoices
+      totalPaid: 0, // Will be calculated from invoices
+      totalPending: 0 // Will be calculated from invoices
+    }));
 
     sendSuccessResponse(res, clientResponses, 'Clients retrieved successfully');
   } catch (error) {
@@ -53,13 +75,36 @@ export const getClientById = async (req: AuthRequest, res: Response, next: NextF
       return next(new AppError('Invalid client ID', 400));
     }
 
-    const client = await Client.findById(id);
+    // Find client in users collection
+    const client = await User.findOne({ _id: id, role: 'client' });
     
     if (!client) {
       return next(new AppError('Client not found', 404));
     }
 
-    sendSuccessResponse(res, mapClientToResponse(client), 'Client retrieved successfully');
+    // Map to client response format
+    const clientResponse = {
+      id: client._id.toString(),
+      name: client.name,
+      email: client.email,
+      phone: client.phone || '',
+      company: client.company || '',
+      address: client.address || '',
+      dossier_number: client.dossier_number,
+      tax_number: client.tax_number,
+      cnss: client.cnss,
+      nature: client.nature,
+      regime_fiscal: client.regime_fiscal,
+      gerants: client.gerants || [],
+      status: client.status || 'active',
+      createdAt: client.createdAt ? client.createdAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      lastActivity: client.updatedAt ? client.updatedAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      totalInvoices: 0,
+      totalPaid: 0,
+      totalPending: 0
+    };
+
+    sendSuccessResponse(res, clientResponse, 'Client retrieved successfully');
   } catch (error) {
     next(error);
   }
@@ -74,44 +119,40 @@ export const createClient = async (req: AuthRequest, res: Response, next: NextFu
 
     const { name, email, phone, company, address, createAccount, password } = req.body;
 
-    // Check if client with this email already exists
-    const existingClient = await Client.findOne({ email });
-    if (existingClient) {
-      return next(new AppError('Client with this email already exists', 400));
+    // Check if user with this email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return next(new AppError('User with this email already exists', 400));
     }
 
-    // Create client
-    const client = await Client.create({
+    // Create user with role 'client'
+    const client = await User.create({
       name,
       email,
       phone,
       company,
       address,
-      status: 'active',
-      lastActivity: new Date()
+      role: 'client',
+      password: password || 'defaultPassword123' // You might want to generate a random password
     });
 
-    // If createAccount is true, create a user account for the client
-    if (createAccount && password) {
-      // Check if user already exists
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return next(new AppError('User with this email already exists', 400));
-      }
+    // Map to client response format
+    const clientResponse = {
+      id: client._id.toString(),
+      name: client.name,
+      email: client.email,
+      phone: client.phone || '',
+      company: client.company || '',
+      address: client.address || '',
+      createdAt: client.createdAt ? client.createdAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      lastActivity: client.updatedAt ? client.updatedAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      status: 'active',
+      totalInvoices: 0,
+      totalPaid: 0,
+      totalPending: 0
+    };
 
-      // Create user
-      await User.create({
-        email,
-        password,
-        name,
-        company,
-        phone,
-        address,
-        role: 'client'
-      });
-    }
-
-    sendSuccessResponse(res, mapClientToResponse(client), 'Client created successfully', 201);
+    sendSuccessResponse(res, clientResponse, 'Client created successfully', 201);
   } catch (error) {
     next(error);
   }
@@ -125,7 +166,20 @@ export const updateClient = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     const { id } = req.params;
-    const { name, email, phone, company, address, status } = req.body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      company, 
+      address, 
+      status,
+      dossier_number,
+      tax_number,
+      cnss,
+      nature,
+      regime_fiscal,
+      gerants
+    } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return next(new AppError('Invalid client ID', 400));
@@ -133,15 +187,55 @@ export const updateClient = async (req: AuthRequest, res: Response, next: NextFu
 
     // If email is being changed, check if new email is already taken
     if (email) {
-      const existingClient = await Client.findOne({ email, _id: { $ne: id } });
-      if (existingClient) {
-        return next(new AppError('Client with this email already exists', 400));
+      const existingUser = await User.findOne({ email, _id: { $ne: id }, role: 'client' });
+      if (existingUser) {
+        return next(new AppError('User with this email already exists', 400));
       }
     }
 
-    const updatedClient = await Client.findByIdAndUpdate(
-      id,
-      { name, email, phone, company, address, status, lastActivity: new Date() },
+    // Validate that regime_fiscal is only set for personne_physique
+    if (regime_fiscal && nature !== 'personne_physique') {
+      return next(new AppError('Régime fiscal can only be set for personne physique', 400));
+    }
+
+    // Validate gerants array if provided
+    if (gerants && Array.isArray(gerants)) {
+      if (gerants.length === 0) {
+        return next(new AppError('At least one gérant is required', 400));
+      }
+      // Validate each gerant has required fields
+      for (const gerant of gerants) {
+        if (!gerant.email || !gerant.phone) {
+          return next(new AppError('Each gérant must have email and phone', 400));
+        }
+      }
+    }
+
+    const updateData: any = {
+      name,
+      email,
+      phone,
+      company,
+      address,
+      status,
+      dossier_number,
+      tax_number,
+      cnss,
+      nature,
+      regime_fiscal,
+      gerants
+    };
+
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    const updatedClient = await User.findOneAndUpdate(
+      { _id: id, role: 'client' },
+      updateData,
       { new: true, runValidators: true }
     );
 
@@ -149,17 +243,29 @@ export const updateClient = async (req: AuthRequest, res: Response, next: NextFu
       return next(new AppError('Client not found', 404));
     }
 
-    // If client has a user account, update user data as well
-    const user = await User.findOne({ email: updatedClient.email, role: 'client' });
-    if (user) {
-      await User.findByIdAndUpdate(
-        user._id,
-        { name, company, phone, address },
-        { new: true, runValidators: true }
-      );
-    }
+    // Map to client response format
+    const clientResponse = {
+      id: updatedClient._id.toString(),
+      name: updatedClient.name,
+      email: updatedClient.email,
+      phone: updatedClient.phone || '',
+      company: updatedClient.company || '',
+      address: updatedClient.address || '',
+      dossier_number: updatedClient.dossier_number,
+      tax_number: updatedClient.tax_number,
+      cnss: updatedClient.cnss,
+      nature: updatedClient.nature,
+      regime_fiscal: updatedClient.regime_fiscal,
+      gerants: updatedClient.gerants || [],
+      status: updatedClient.status || 'active',
+      createdAt: updatedClient.createdAt ? updatedClient.createdAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      lastActivity: updatedClient.updatedAt ? updatedClient.updatedAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      totalInvoices: 0,
+      totalPaid: 0,
+      totalPending: 0
+    };
 
-    sendSuccessResponse(res, mapClientToResponse(updatedClient), 'Client updated successfully');
+    sendSuccessResponse(res, clientResponse, 'Client updated successfully');
   } catch (error) {
     next(error);
   }
@@ -178,7 +284,7 @@ export const deleteClient = async (req: AuthRequest, res: Response, next: NextFu
       return next(new AppError('Invalid client ID', 400));
     }
 
-    const client = await Client.findById(id);
+    const client = await User.findOne({ _id: id, role: 'client' });
     if (!client) {
       return next(new AppError('Client not found', 404));
     }
@@ -186,10 +292,7 @@ export const deleteClient = async (req: AuthRequest, res: Response, next: NextFu
     // Check if client has invoices or payments before deleting
     // For now, we'll just delete without checking
 
-    await Client.findByIdAndDelete(id);
-
-    // Delete associated user account if exists
-    await User.findOneAndDelete({ email: client.email, role: 'client' });
+    await User.findByIdAndDelete(id);
 
     sendSuccessResponse(res, null, 'Client deleted successfully');
   } catch (error) {

@@ -34,12 +34,19 @@ const ClientPaymentsPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
 
   // Filtrer les paiements pour le client connecté
-  const clientPayments = payments.filter(pay => pay.clientId === user?.id);
-  const clientInvoices = invoices.filter(inv => inv.clientId === user?.id);
+  const clientPayments = payments && Array.isArray(payments) && user
+    ? payments.filter(pay => pay.clientId === user.id)
+    : [];
+    
+  const clientInvoices = invoices && Array.isArray(invoices) && user
+    ? invoices.filter(inv => inv.clientId === user.id)
+    : [];
 
-  const filteredPayments = clientPayments.filter(payment =>
-    (payment.reference && payment.reference.toLowerCase().includes(searchText.toLowerCase()))
-  );
+  const filteredPayments = clientPayments && Array.isArray(clientPayments)
+    ? clientPayments.filter(payment =>
+        (payment.reference && payment.reference.toLowerCase().includes(searchText.toLowerCase()))
+      )
+    : [];
 
   const getMethodIcon = (method: string) => {
     const icons = {
@@ -91,6 +98,7 @@ const ClientPaymentsPage: React.FC = () => {
       dataIndex: 'invoiceId',
       key: 'invoiceId',
       render: (invoiceId: string) => {
+        if (!invoices || !Array.isArray(invoices)) return '-';
         const invoice = invoices.find(inv => inv.id === invoiceId);
         return invoice ? invoice.number : '-';
       },
@@ -136,10 +144,22 @@ const ClientPaymentsPage: React.FC = () => {
   ];
 
   // Calculs des statistiques
-  const totalPaid = clientPayments.reduce((sum, p) => sum + p.amount, 0);
-  const completedPayments = clientPayments.filter(p => p.status === 'completed');
-  const pendingPayments = clientPayments.filter(p => p.status === 'pending');
-  const totalInvoices = clientInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  const totalPaid = clientPayments && Array.isArray(clientPayments)
+    ? clientPayments.reduce((sum, p) => sum + p.amount, 0)
+    : 0;
+    
+  const completedPayments = clientPayments && Array.isArray(clientPayments)
+    ? clientPayments.filter(p => p.status === 'completed')
+    : [];
+    
+  const pendingPayments = clientPayments && Array.isArray(clientPayments)
+    ? clientPayments.filter(p => p.status === 'pending')
+    : [];
+    
+  const totalInvoices = clientInvoices && Array.isArray(clientInvoices)
+    ? clientInvoices.reduce((sum, inv) => sum + inv.total, 0)
+    : 0;
+    
   const remainingAmount = totalInvoices - totalPaid;
 
   return (

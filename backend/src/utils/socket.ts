@@ -19,7 +19,18 @@ const activeUsers = new Map<string, string>(); // userId -> socketId
 export const initializeSocket = (httpServer: HttpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL || "http://localhost:5173",
+      // Allow any localhost origin in development
+      origin: (origin, callback) => {
+        // Allow requests without an origin (e.g., server-to-server) or from localhost
+        if (!origin || origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1")) {
+          callback(null, true);
+        } else if (process.env.NODE_ENV === "production" && origin === process.env.FRONTEND_URL) {
+          // In production, only allow the specified FRONTEND_URL
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       credentials: true,
       methods: ["GET", "POST"],
     },

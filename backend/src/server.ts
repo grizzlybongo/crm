@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -12,6 +12,7 @@ import {
   handleLargeRequestError,
 } from "./utils/errorHandler";
 import { initializeSocket } from "./utils/socket";
+import { setSocketInstance } from "./controllers/invoiceController";
 
 // Routes
 import authRoutes from "./routes/auth";
@@ -19,6 +20,7 @@ import clientRoutes from "./routes/clients";
 import invoiceRoutes from "./routes/invoices";
 import paymentRoutes from "./routes/payments";
 import messageRoutes from "./routes/messages";
+import calendarRoutes from "./routes/calendar";
 
 // Load environment variables
 dotenv.config();
@@ -34,8 +36,29 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 // Middleware
+// Raw body parser for Stripe webhooks - should come BEFORE the JSON parser
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.originalUrl === '/api/payments/webhook') {
+    let rawBody = '';
+    req.on('data', (chunk) => {
+      rawBody += chunk.toString();
+    });
+    req.on('end', () => {
+      (req as any).rawBody = Buffer.from(rawBody);
+      next();
+    });
+  } else {
+    next();
+  }
+});
+
 // Increase JSON body size limit to 10MB for handling base64 encoded images
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "10mb", verify: (req: any, _: Response, buf: Buffer) => {
+  // Save raw body for webhook verification
+  if (req.originalUrl === '/api/payments/webhook') {
+    req.rawBody = buf;
+  }
+}}));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(handleLargeRequestError); // Handle "request entity too large" errors
 app.use(cors()); // Enable CORS
@@ -51,6 +74,7 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/calendar", calendarRoutes);
 
 // Health check route
 app.get("/health", (req, res) => {
@@ -68,10 +92,13 @@ app.use((err: Error, req: express.Request, res: express.Response) => {
 });
 
 // Initialize Socket.IO
-initializeSocket(server);
+const io = initializeSocket(server);
+
+// Share the Socket.IO instance with the invoice controller for notifications
+setSocketInstance(io);
 
 // Start server
 server.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  console.log("Socket.IO server initialized");
+  console.log("Socket.IO server initialized with invoice notifications support");
 });

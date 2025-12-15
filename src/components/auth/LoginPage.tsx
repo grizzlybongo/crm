@@ -166,7 +166,7 @@ const LoginPage: React.FC = () => {
                 <CrownOutlined className="text-white text-3xl" />
               </div>
               <div>
-                <Title level={1} className="!text-5xl !font-bold !text-gray-800 !mb-3 !leading-tight">
+                <Title level={1} className="!text-3xl !font-bold !text-gray-800 !mb-3 !leading-tight">
                   CRM Pro
                 </Title>
                 <div className="flex items-center">
@@ -180,18 +180,18 @@ const LoginPage: React.FC = () => {
               </div>
             </div>
             
-            <Paragraph className="text-2xl text-gray-700 leading-relaxed font-light max-w-2xl">
+            <Paragraph className="text-1xl text-gray-700 leading-relaxed font-light max-w-2xl">
               Transformez votre façon de gérer votre entreprise avec une solution complète, 
               intuitive et puissante. Factures, clients, paiements et bien plus encore.
             </Paragraph>
           </div>
 
           {/* Enhanced Features grid */}
-          <div className="grid grid-cols-1 gap-6 max-w-2xl">
+          <div className="grid grid-cols-1 gap-3 max-w-1xl">
             {features.map((feature, index) => (
               <div 
                 key={index}
-                className="flex items-center space-x-6 p-6 bg-white/70 backdrop-blur-md rounded-2xl border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group"
+                className="flex items-center space-x-6 p-6 bg-white/100 backdrop-blur-md rounded-2xl border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group"
                 style={{ animationDelay: `${index * 0.2}s` }}
               >
                 <div className="w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
@@ -210,7 +210,7 @@ const LoginPage: React.FC = () => {
           </div>
 
           {/* Enhanced Stats section */}
-          <div className="grid grid-cols-3 gap-8 pt-8 max-w-2xl">
+          <div className="grid grid-cols-3 gap-3 pt-8 max-w-2xl">
             <div className="text-center p-4 bg-white/50 backdrop-blur-sm rounded-2xl hover:bg-white/70 transition-colors duration-300 shadow-md hover:shadow-lg">
               <div className="text-4xl font-bold text-teal-600 mb-2 relative inline-block">
                 <span className="relative z-10">500+</span>

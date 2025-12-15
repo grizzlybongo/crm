@@ -1,20 +1,16 @@
-// Message Types
+// Message Types - Updated to match backend response format
+export interface MessageUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  role: "admin" | "client";
+}
+
 export interface Message {
   id: string;
-  senderId: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-    role: "admin" | "client";
-  };
-  receiverId: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-    role: "admin" | "client";
-  };
+  senderId: MessageUser;
+  receiverId: MessageUser;
   content: string;
   messageType: "text" | "file" | "image";
   fileName?: string;
@@ -23,17 +19,25 @@ export interface Message {
   read: boolean;
   readAt?: string;
   timestamp: string;
+  createdAt?: string;
+  updatedAt?: string;
+  tempId?: string;
+}
+
+// Legacy message format for backward compatibility
+export interface LegacyMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  timestamp: string;
+  read: boolean;
+  type: string;
 }
 
 export interface Conversation {
   conversationId: string;
-  otherUser: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-    role: "admin" | "client";
-  };
+  otherUser: MessageUser;
   lastMessage?: Message;
   unreadCount: number;
   messages: Message[];
@@ -103,6 +107,7 @@ export interface MessagesState {
   unreadCount: number;
   onlineUsers: string[];
   typingUsers: Record<string, string[]>; // conversationId -> array of user names
+  availableUsers: AvailableUser[];
 }
 
 // Socket Event Types
@@ -123,3 +128,27 @@ export interface SocketEvents {
   "user:offline": (user: UserOnlineStatus) => void;
   "users:online-list": (users: string[]) => void;
 }
+
+// Helper function to convert legacy message format to new format
+export const convertLegacyMessage = (
+  legacyMessage: LegacyMessage,
+  senderInfo: MessageUser,
+  receiverInfo: MessageUser
+): Message => {
+  return {
+    id: legacyMessage.id,
+    senderId: senderInfo,
+    receiverId: receiverInfo,
+    content: legacyMessage.content,
+    messageType: "text",
+    conversationId: generateConversationId(senderInfo.id, receiverInfo.id),
+    read: legacyMessage.read,
+    timestamp: legacyMessage.timestamp,
+  };
+};
+
+// Helper function to generate conversation ID
+export const generateConversationId = (userId1: string, userId2: string): string => {
+  const ids = [userId1, userId2].sort();
+  return `${ids[0]}_${ids[1]}`;
+};

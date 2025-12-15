@@ -1,6 +1,6 @@
 /* Stats Section */
 .vitrine-page .stats-section {
-  padding: 10rem 2rem;
+  padding: 5rem 2rem;
   position: relative;
   overflow: hidden;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -80,7 +80,7 @@
 .vitrine-page .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 3rem;
+  gap: 1rem;
   max-width: 1200px;
   margin: 0 auto;
 }

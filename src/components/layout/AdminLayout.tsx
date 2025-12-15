@@ -51,7 +51,7 @@ const ClientsPage = lazy(() => import("../pages/admin/ClientsPage"));
 const InvoicesPage = lazy(() => import("../pages/admin/InvoicesPage"));
 const QuotesPage = lazy(() => import("../pages/admin/QuotesPage"));
 const PaymentsPage = lazy(() => import("../pages/admin/PaymentsPage"));
-const NewMessagesPage = lazy(() => import("../pages/admin/NewMessagesPage"));
+const MessagesPage = lazy(() => import("../pages/admin/NewMessagesPage"));
 const ProfilePage = lazy(() => import("../pages/admin/ProfilePage"));
 const SettingsPage = lazy(() => import("../pages/admin/SettingsPage"));
 const SecurityPage = lazy(() => import("../pages/admin/SecurityPage"));
@@ -495,7 +495,7 @@ const AdminLayout: React.FC = () => {
                 <Route path="invoices" element={<InvoicesPage />} />
                 <Route path="quotes" element={<QuotesPage />} />
                 <Route path="payments" element={<PaymentsPage />} />
-                <Route path="messages" element={<NewMessagesPage />} />
+                <Route path="messages" element={<MessagesPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="security" element={<SecurityPage />} />

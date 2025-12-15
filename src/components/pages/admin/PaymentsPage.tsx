@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   Button, 
@@ -16,6 +16,8 @@ import {
   Form,
   InputNumber,
   message,
+  Spin,
+  Alert,
 } from 'antd';
 import {
   PlusOutlined,
@@ -23,10 +25,17 @@ import {
   CreditCardOutlined,
   BankOutlined,
   WalletOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../../../store';
-import { Payment, addPayment } from '../../../store/slices/paymentsSlice';
+import { RootState, AppDispatch } from '../../../store';
+import { 
+  Payment, 
+  fetchAllPayments,
+  createNewPayment,
+  updateExistingPayment,
+  removePayment
+} from '../../../store/slices/paymentsSlice';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -34,18 +43,30 @@ const { Search } = Input;
 const { Option } = Select;
 
 const PaymentsPage: React.FC = () => {
-  const dispatch = useDispatch();
-  const { payments } = useSelector((state: RootState) => state.payments);
+  const dispatch = useDispatch<AppDispatch>();
+  const { payments, loading, error } = useSelector((state: RootState) => state.payments);
   const { invoices } = useSelector((state: RootState) => state.invoices);
   const { clients } = useSelector((state: RootState) => state.clients);
+  const auth = useSelector((state: RootState) => state.auth);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [form] = Form.useForm();
 
-  const filteredPayments = payments.filter(payment =>
-    payment.clientName.toLowerCase().includes(searchText.toLowerCase()) ||
-    (payment.reference && payment.reference.toLowerCase().includes(searchText.toLowerCase()))
-  );
+  // Fetch payments when component mounts
+  useEffect(() => {
+    dispatch(fetchAllPayments());
+  }, [dispatch]);
+
+
+
+
+
+  const filteredPayments = payments && Array.isArray(payments)
+    ? payments.filter(payment =>
+        payment.clientName.toLowerCase().includes(searchText.toLowerCase()) ||
+        (payment.reference && payment.reference.toLowerCase().includes(searchText.toLowerCase()))
+      )
+    : [];
 
   const getMethodIcon = (method: string) => {
     const icons = {
@@ -98,6 +119,16 @@ const PaymentsPage: React.FC = () => {
       key: 'clientName',
     },
     {
+      title: 'Facture',
+      dataIndex: 'invoiceId',
+      key: 'invoiceId',
+      render: (invoiceId: string) => {
+        if (!invoices || !Array.isArray(invoices)) return '-';
+        const invoice = invoices.find(inv => inv.id === invoiceId);
+        return invoice ? invoice.number : '-';
+      },
+    },
+    {
       title: 'Montant',
       dataIndex: 'amount',
       key: 'amount',
@@ -135,38 +166,126 @@ const PaymentsPage: React.FC = () => {
         </Tag>
       ),
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (record: Payment) => (
+        <Space>
+          <Button 
+            type="text" 
+            onClick={() => {
+              Modal.confirm({
+                title: 'Marquer comme complété',
+                content: 'Confirmer que ce paiement a été reçu ?',
+                onOk: () => {
+                  dispatch(updateExistingPayment({ 
+                    id: record.id, 
+                    data: { status: 'completed' } 
+                  }));
+                  message.success('Paiement marqué comme complété');
+                }
+              });
+            }}
+            disabled={record.status === 'completed'}
+          >
+            Valider
+          </Button>
+          <Button
+            type="text"
+            danger
+            onClick={() => {
+              Modal.confirm({
+                title: 'Supprimer le paiement',
+                content: 'Êtes-vous sûr de vouloir supprimer ce paiement ?',
+                onOk: () => {
+                  dispatch(removePayment(record.id));
+                  message.success('Paiement supprimé');
+                }
+              });
+            }}
+          >
+            Supprimer
+          </Button>
+        </Space>
+      )
+    }
   ];
 
-  const handleSubmit = (values: any) => {
-    const selectedInvoice = invoices.find(inv => inv.id === values.invoiceId);
-    const selectedClient = clients.find(c => c.id === selectedInvoice?.clientId);
+  const handleSubmit = async (values: any) => {
+    try {
+      if (!invoices || !Array.isArray(invoices)) {
+        message.error('Erreur: Données des factures non disponibles');
+        return;
+      }
+      
+      const selectedInvoice = invoices.find(inv => inv.id === values.invoiceId);
+      const selectedClient = clients && Array.isArray(clients) ? 
+        clients.find(c => c.id === selectedInvoice?.clientId) : undefined;
 
-    const newPayment: Payment = {
-      id: Date.now().toString(),
-      invoiceId: values.invoiceId,
-      clientId: selectedInvoice?.clientId || '',
-      clientName: selectedClient?.name || '',
-      amount: values.amount,
-      date: values.date.format('YYYY-MM-DD'),
-      method: values.method,
-      status: values.status || 'completed',
-      reference: values.reference,
-      notes: values.notes,
-    };
+      if (!selectedInvoice || !selectedClient) {
+        message.error('Erreur: Facture ou client non trouvé');
+        return;
+      }
 
-    dispatch(addPayment(newPayment));
-    message.success('Paiement enregistré');
-    setModalVisible(false);
-    form.resetFields();
+      const paymentData = {
+        invoiceId: values.invoiceId,
+        clientId: selectedInvoice.clientId,
+        clientName: selectedClient.name,
+        amount: values.amount,
+        date: values.date.format('YYYY-MM-DD'),
+        method: values.method,
+        status: values.status || 'completed',
+        reference: values.reference,
+        notes: values.notes,
+      };
+
+      await dispatch(createNewPayment(paymentData)).unwrap();
+      message.success('Paiement enregistré avec succès');
+      setModalVisible(false);
+      form.resetFields();
+    } catch (error: any) {
+      message.error(error || 'Une erreur est survenue lors de l\'enregistrement du paiement');
+    }
   };
 
   // Statistiques
-  const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
-  const completedPayments = payments.filter(p => p.status === 'completed');
-  const pendingPayments = payments.filter(p => p.status === 'pending');
-  const thisMonthPayments = payments.filter(p => 
-    dayjs(p.date).isSame(dayjs(), 'month')
-  ).reduce((sum, p) => sum + p.amount, 0);
+  const totalPayments = payments && Array.isArray(payments)
+    ? payments.reduce((sum, p) => sum + p.amount, 0)
+    : 0;
+    
+  const completedPayments = payments && Array.isArray(payments)
+    ? payments.filter(p => p.status === 'completed')
+    : [];
+    
+  const pendingPayments = payments && Array.isArray(payments)
+    ? payments.filter(p => p.status === 'pending')
+    : [];
+    
+  const thisMonthPayments = payments && Array.isArray(payments)
+    ? payments.filter(p => dayjs(p.date).isSame(dayjs(), 'month'))
+            .reduce((sum, p) => sum + p.amount, 0)
+    : 0;
+
+  // Show loading state
+  if (loading && payments.length === 0) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error && payments.length === 0) {
+    return (
+      <Alert 
+        message="Erreur" 
+        description={`Impossible de charger les paiements: ${error}`}
+        type="error" 
+        showIcon 
+      />
+    );
+  }
 
   return (
     <div>
@@ -237,6 +356,7 @@ const PaymentsPage: React.FC = () => {
           >
             Nouveau paiement
           </Button>
+
         </Space>
 
         <Table
@@ -250,6 +370,7 @@ const PaymentsPage: React.FC = () => {
             showTotal: (total, range) => 
               `${range[0]}-${range[1]} sur ${total} paiements`,
           }}
+          loading={loading}
         />
       </Card>
 
@@ -263,6 +384,7 @@ const PaymentsPage: React.FC = () => {
         }}
         onOk={() => form.submit()}
         width={600}
+        confirmLoading={loading}
       >
         <Form
           form={form}
@@ -281,11 +403,11 @@ const PaymentsPage: React.FC = () => {
                 rules={[{ required: true, message: 'La facture est requise' }]}
               >
                 <Select placeholder="Sélectionner une facture">
-                  {invoices.filter(inv => inv.status !== 'paid').map(invoice => (
+                  {invoices && Array.isArray(invoices) ? invoices.filter(inv => inv.status !== 'paid').map(invoice => (
                     <Option key={invoice.id} value={invoice.id}>
                       {invoice.number} - {invoice.clientName} ({invoice.total.toLocaleString()} TND)
                     </Option>
-                  ))}
+                  )) : null}
                 </Select>
               </Form.Item>
             </Col>

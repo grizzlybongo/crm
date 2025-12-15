@@ -89,7 +89,7 @@ const ContactSection: React.FC<ContactSectionProps> = ({ isVisible }) => {
                 </div>
                 <div className="method-info">
                   <h4>Téléphone</h4>
-                  <p><a href="tel:+21694338220">94338220</a></p>
+                  <p><a href="tel:+21694338220" style={{ color: 'black' }}>94338220</a></p>
                 </div>
               </div>
               
@@ -99,7 +99,7 @@ const ContactSection: React.FC<ContactSectionProps> = ({ isVisible }) => {
                 </div>
                 <div className="method-info">
                   <h4>Email</h4>
-                  <p><a href="mailto:contact@cmt.tn">contact@cmt.tn</a></p>
+                  <p><a href="mailto:contact@cmt.tn" style={{ color: 'black' }}>contact@cmt.tn</a></p>
                 </div>
               </div>
               

@@ -38,6 +38,48 @@ const userSchema = new Schema<IUser>(
     },
     avatar: {
       type: String
+    },
+    dossier_number: {
+      type: String
+    },
+    tax_number: {
+      type: String
+    },
+    cnss: {
+      type: String
+    },
+    nature: {
+      type: String,
+      enum: ['personne_physique', 'personne_morale']
+    },
+    regime_fiscal: {
+      type: String,
+      enum: ['regime_reel', 'regime_reel_simplifie', 'forfait_assiette', 'forfaitaire']
+    },
+    gerants: [{
+      email: {
+        type: String,
+        required: true
+      },
+      phone: {
+        type: String,
+        required: true
+      },
+      'Nom gérant': {
+        type: String
+      }
+    }],
+    status: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active'
+    },
+    googleCalendarTokens: {
+      access_token: String,
+      refresh_token: String,
+      scope: String,
+      token_type: String,
+      expiry_date: Number
     }
   },
   {

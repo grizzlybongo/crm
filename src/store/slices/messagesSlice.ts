@@ -171,6 +171,7 @@ const initialState: MessagesState = {
   unreadCount: 0,
   onlineUsers: [],
   typingUsers: {},
+  availableUsers: [],
 };
 
 const messagesSlice = createSlice({
@@ -420,8 +421,8 @@ const messagesSlice = createSlice({
       })
 
       // Fetch available users
-      .addCase(fetchAvailableUsers.fulfilled, () => {
-        // This could be stored in a separate slice or used directly in components
+      .addCase(fetchAvailableUsers.fulfilled, (state, action) => {
+        state.availableUsers = action.payload;
       })
 
       // Fetch unread count

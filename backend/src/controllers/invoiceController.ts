@@ -1,16 +1,72 @@
 import { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Invoice from '../models/Invoice';
-import Client from '../models/Client';
+import User from '../models/User';
 import { AppError, sendSuccessResponse } from '../utils/errorHandler';
 import { AuthRequest, InvoiceResponse } from '../types';
+import { generateInvoicePdf } from '../utils/pdfGenerator';
+import { activeUsers } from '../utils/socket';
+import { Server } from 'socket.io';
+
+let io: Server | null = null;
+
+// Set the Socket.io instance
+export const setSocketInstance = (socketIo: Server) => {
+  io = socketIo;
+};
+
+// Send notification to client via socket
+const sendInvoiceNotification = async (clientId: string, invoice: any, notificationType: 'new' | 'update' | 'status') => {
+  try {
+    if (!io) return;
+
+    // Find client
+    const client = await User.findById(clientId);
+    if (!client) return;
+
+    // Check if user is online - use client._id as userId
+    const socketId = activeUsers.get(client._id.toString() || '');
+    
+    if (socketId) {
+      const notificationTitle = notificationType === 'new' 
+        ? 'Nouvelle facture' 
+        : notificationType === 'update'
+          ? 'Facture modifiée'
+          : 'Statut de facture modifié';
+
+      const notificationMessage = notificationType === 'new'
+        ? `Une nouvelle facture (${invoice.number}) d'un montant de ${invoice.total.toLocaleString()} TND a été créée.`
+        : notificationType === 'update'
+          ? `La facture ${invoice.number} a été mise à jour.`
+          : `Le statut de la facture ${invoice.number} est maintenant "${invoice.status}".`;
+
+      // Send to client's personal room
+      io.to(socketId).emit('notification:invoice', {
+        type: notificationType,
+        invoiceId: invoice._id,
+        number: invoice.number,
+        amount: invoice.total,
+        title: notificationTitle,
+        message: notificationMessage,
+        timestamp: new Date()
+      });
+
+      console.log(`Invoice notification sent to client ${client.name}`);
+    } else {
+      console.log(`Client ${client.name} is not online, notification not sent`);
+      // In a real app, you would store the notification in the database for later
+    }
+  } catch (error) {
+    console.error('Error sending invoice notification:', error);
+  }
+};
 
 // Map MongoDB document to frontend Invoice response
 const mapInvoiceToResponse = async (invoice: any): Promise<InvoiceResponse> => {
   let clientName = '';
   
   try {
-    const client = await Client.findById(invoice.clientId);
+    const client = await User.findById(invoice.clientId);
     if (client) {
       clientName = client.name;
     }
@@ -53,7 +109,7 @@ export const getAllInvoices = async (req: AuthRequest, res: Response, next: Next
       invoices = await Invoice.find().sort({ date: -1 });
     } else {
       // Clients can only see their own invoices
-      const client = await Client.findOne({ email: req.user.email });
+      const client = await User.findOne({ email: req.user.email });
       if (!client) {
         return next(new AppError('Client profile not found', 404));
       }
@@ -90,7 +146,7 @@ export const getInvoiceById = async (req: AuthRequest, res: Response, next: Next
 
     // Check if user has access to this invoice
     if (req.user.role !== 'admin') {
-      const client = await Client.findOne({ email: req.user.email });
+      const client = await User.findOne({ email: req.user.email });
       if (!client || !invoice.clientId.equals(client._id)) {
         return next(new AppError('Not authorized to access this invoice', 403));
       }
@@ -110,7 +166,7 @@ export const createInvoice = async (req: AuthRequest, res: Response, next: NextF
       return next(new AppError('Not authorized to create invoices', 403));
     }
 
-    const { number, clientId, date, dueDate, items, notes, status } = req.body;
+    const { number, clientId, date, dueDate, items, notes, status, sendNotification } = req.body;
 
     // Validate client ID
     if (!mongoose.Types.ObjectId.isValid(clientId)) {
@@ -118,7 +174,7 @@ export const createInvoice = async (req: AuthRequest, res: Response, next: NextF
     }
 
     // Check if client exists
-    const client = await Client.findById(clientId);
+    const client = await User.findById(clientId);
     if (!client) {
       return next(new AppError('Client not found', 404));
     }
@@ -140,8 +196,9 @@ export const createInvoice = async (req: AuthRequest, res: Response, next: NextF
     // Calculate subtotal
     const subtotal = processedItems.reduce((sum: number, item: any) => sum + item.total, 0);
     
-    // Calculate tax (assuming 20% VAT)
-    const tax = subtotal * 0.2;
+    // Calculate tax (using provided tax rate or default 20%)
+    const taxRate = req.body.taxRate ?? 0.2;
+    const tax = subtotal * taxRate;
     
     // Calculate total
     const total = subtotal + tax;
@@ -156,12 +213,13 @@ export const createInvoice = async (req: AuthRequest, res: Response, next: NextF
       items: processedItems,
       subtotal,
       tax,
+      taxRate,
       total,
       notes
     });
 
     // Update client's invoice statistics
-    await Client.findByIdAndUpdate(
+    await User.findByIdAndUpdate(
       clientId,
       {
         $inc: { 
@@ -171,6 +229,11 @@ export const createInvoice = async (req: AuthRequest, res: Response, next: NextF
         lastActivity: new Date()
       }
     );
+
+    // Send notification to client if requested
+    if (sendNotification) {
+      await sendInvoiceNotification(clientId, invoice, 'new');
+    }
 
     const invoiceResponse = await mapInvoiceToResponse(invoice);
     sendSuccessResponse(res, invoiceResponse, 'Invoice created successfully', 201);
@@ -187,7 +250,7 @@ export const updateInvoice = async (req: AuthRequest, res: Response, next: NextF
     }
 
     const { id } = req.params;
-    const { number, clientId, date, dueDate, items, notes, status } = req.body;
+    const { number, clientId, date, dueDate, items, notes, status, sendNotification } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return next(new AppError('Invalid invoice ID', 400));
@@ -199,7 +262,7 @@ export const updateInvoice = async (req: AuthRequest, res: Response, next: NextF
       return next(new AppError('Invoice not found', 404));
     }
 
-    // If changing the invoice number, check if new number is already taken
+    // If updating number, check if it would create a duplicate
     if (number && number !== existingInvoice.number) {
       const duplicateInvoice = await Invoice.findOne({ number, _id: { $ne: id } });
       if (duplicateInvoice) {
@@ -213,17 +276,17 @@ export const updateInvoice = async (req: AuthRequest, res: Response, next: NextF
         return next(new AppError('Invalid client ID', 400));
       }
 
-      const client = await Client.findById(clientId);
+      const client = await User.findById(clientId);
       if (!client) {
         return next(new AppError('Client not found', 404));
       }
     }
 
-    // Calculate totals for each item if provided
+    // Calculate totals if items are provided
+    let newSubtotal = existingInvoice.subtotal;
+    let newTax = existingInvoice.tax;
+    let newTotal = existingInvoice.total;
     let processedItems = existingInvoice.items;
-    let subtotal = existingInvoice.subtotal;
-    let tax = existingInvoice.tax;
-    let total = existingInvoice.total;
 
     if (items) {
       processedItems = items.map((item: any) => ({
@@ -233,14 +296,12 @@ export const updateInvoice = async (req: AuthRequest, res: Response, next: NextF
         total: item.quantity * item.unitPrice
       }));
 
-      // Calculate subtotal
-      subtotal = processedItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      newSubtotal = processedItems.reduce((sum: number, item: any) => sum + item.total, 0);
       
-      // Calculate tax (assuming 20% VAT)
-      tax = subtotal * 0.2;
-      
-      // Calculate total
-      total = subtotal + tax;
+      // Use provided tax rate or existing one
+      const taxRate = req.body.taxRate ?? existingInvoice.taxRate ?? 0.2;
+      newTax = newSubtotal * taxRate;
+      newTotal = newSubtotal + newTax;
     }
 
     // Update invoice
@@ -253,52 +314,53 @@ export const updateInvoice = async (req: AuthRequest, res: Response, next: NextF
         dueDate: dueDate ? new Date(dueDate) : existingInvoice.dueDate,
         status: status || existingInvoice.status,
         items: processedItems,
-        subtotal,
-        tax,
-        total,
+        subtotal: newSubtotal,
+        tax: newTax,
+        taxRate: req.body.taxRate ?? existingInvoice.taxRate,
+        total: newTotal,
         notes: notes !== undefined ? notes : existingInvoice.notes
       },
-      { new: true, runValidators: true }
+      { new: true }
     );
 
-    // Update client statistics when status changes
-    if (
-      status &&
-      status !== existingInvoice.status &&
-      updatedInvoice !== null &&
-      updatedInvoice !== undefined
-    ) {
-      const clientId = updatedInvoice.clientId;
+    // Update client statistics if status has changed (e.g., from draft to sent)
+    if (status && status !== existingInvoice.status) {
+      // Handle different status transitions
+      if (status === 'paid' && existingInvoice.status !== 'paid') {
+        // Invoice is now paid - decrease pending, increase paid
+        await User.findByIdAndUpdate(
+          updatedInvoice?.clientId,
+          {
+            $inc: { 
+              totalPending: updatedInvoice?.total ? -updatedInvoice.total : 0,
+              totalPaid: updatedInvoice?.total || 0
+            },
+            lastActivity: new Date()
+          }
+        );
+      } else if (status !== 'paid' && existingInvoice.status === 'paid') {
+        // Invoice was paid but isn't anymore - increase pending, decrease paid
+        await User.findByIdAndUpdate(
+          updatedInvoice?.clientId,
+          {
+            $inc: { 
+              totalPending: updatedInvoice?.total || 0,
+              totalPaid: updatedInvoice?.total ? -updatedInvoice.total : 0
+            },
+            lastActivity: new Date()
+          }
+        );
+      }
       
-      // If invoice was previously not paid and now it's paid
-      if (existingInvoice.status !== 'paid' && status === 'paid') {
-        await Client.findByIdAndUpdate(
-          clientId,
-          {
-            $inc: { 
-              totalPaid: total,
-              totalPending: -total
-            },
-            lastActivity: new Date()
-          }
-        );
-      }
-      // If invoice was previously paid and now it's not paid
-      else if (existingInvoice.status === 'paid' && status !== 'paid') {
-        await Client.findByIdAndUpdate(
-          clientId,
-          {
-            $inc: { 
-              totalPaid: -total,
-              totalPending: total
-            },
-            lastActivity: new Date()
-          }
-        );
-      }
+      // Send notification for status update
+      await sendInvoiceNotification(updatedInvoice!.clientId.toString(), updatedInvoice!, 'status');
+    } 
+    // Send regular update notification if requested
+    else if (sendNotification) {
+      await sendInvoiceNotification(updatedInvoice!.clientId.toString(), updatedInvoice!, 'update');
     }
 
-    const invoiceResponse = await mapInvoiceToResponse(updatedInvoice);
+    const invoiceResponse = await mapInvoiceToResponse(updatedInvoice!);
     sendSuccessResponse(res, invoiceResponse, 'Invoice updated successfully');
   } catch (error) {
     next(error);
@@ -325,7 +387,7 @@ export const deleteInvoice = async (req: AuthRequest, res: Response, next: NextF
 
     // Update client statistics before deleting invoice
     if (invoice.status === 'paid') {
-      await Client.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         invoice.clientId,
         {
           $inc: { 
@@ -335,7 +397,7 @@ export const deleteInvoice = async (req: AuthRequest, res: Response, next: NextF
         }
       );
     } else {
-      await Client.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         invoice.clientId,
         {
           $inc: { 
@@ -349,6 +411,54 @@ export const deleteInvoice = async (req: AuthRequest, res: Response, next: NextF
     await Invoice.findByIdAndDelete(id);
 
     sendSuccessResponse(res, null, 'Invoice deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}; 
+
+// Generate PDF for invoice
+export const generatePdf = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return next(new AppError('Not authenticated', 401));
+    }
+
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new AppError('Invalid invoice ID', 400));
+    }
+
+    const invoice = await Invoice.findById(id);
+    
+    if (!invoice) {
+      return next(new AppError('Invoice not found', 404));
+    }
+
+    // Check if user has access to this invoice
+    if (req.user.role !== 'admin') {
+      const client = await User.findOne({ email: req.user.email });
+      if (!client || !invoice.clientId.equals(client._id)) {
+        return next(new AppError('Not authorized to access this invoice', 403));
+      }
+    }
+
+    // Get client information for the invoice
+    const client = await User.findById(invoice.clientId);
+    
+    if (!client) {
+      return next(new AppError('Client not found', 404));
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateInvoicePdf(invoice, client);
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoice.number}.pdf`);
+    
+    // Send PDF
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }

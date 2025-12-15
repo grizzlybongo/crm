@@ -17,6 +17,7 @@ export interface IInvoice {
   items: IInvoiceItem[];
   subtotal: number;
   tax: number;
+  taxRate: number;
   total: number;
   notes?: string;
 }
@@ -85,6 +86,11 @@ const invoiceSchema = new Schema<IInvoice>(
       type: Number,
       required: [true, 'Please provide subtotal']
     },
+    taxRate: {
+      type: Number,
+      default: 0.2,
+      required: [true, 'Please provide tax rate']
+    },
     tax: {
       type: Number,
       required: [true, 'Please provide tax amount']
@@ -107,8 +113,9 @@ invoiceSchema.pre('save', function(next) {
   // Calculate subtotal
   this.subtotal = this.items.reduce((sum, item) => sum + item.total, 0);
   
-  // Calculate tax (assuming 20% VAT)
-  this.tax = this.subtotal * 0.2;
+  // Calculate tax using the tax rate (default 20% if not provided)
+  this.taxRate = this.taxRate || 0.2;
+  this.tax = this.subtotal * this.taxRate;
   
   // Calculate total
   this.total = this.subtotal + this.tax;

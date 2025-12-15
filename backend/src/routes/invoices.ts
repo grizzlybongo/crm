@@ -4,7 +4,8 @@ import {
   getInvoiceById,
   createInvoice,
   updateInvoice,
-  deleteInvoice
+  deleteInvoice,
+  generatePdf
 } from '../controllers/invoiceController';
 import { protect, restrictTo } from '../middleware/auth';
 
@@ -18,6 +19,9 @@ router.get('/', getAllInvoices);
 
 // GET specific invoice - available to admin and client (if owns the invoice)
 router.get('/:id', getInvoiceById);
+
+// GET PDF for invoice - available to admin and client (if owns the invoice)
+router.get('/:id/pdf', generatePdf);
 
 // POST, PATCH, DELETE - admin only
 router.post('/', restrictTo('admin'), createInvoice);

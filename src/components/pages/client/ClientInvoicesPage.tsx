@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   Button, 
@@ -10,6 +10,7 @@ import {
   Modal,
   Descriptions,
   Divider,
+  message,
 } from 'antd';
 import {
   SearchOutlined,
@@ -18,26 +19,39 @@ import {
   CreditCardOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
-import { Invoice } from '../../../store/slices/invoicesSlice';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../../store';
+import { Invoice, fetchAllInvoices } from '../../../store/slices/invoicesSlice';
+import { generateInvoicePdf } from '../../../services/invoiceService';
+import OnlinePaymentModal from './OnlinePaymentModal';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 
 const ClientInvoicesPage: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { invoices } = useSelector((state: RootState) => state.invoices);
+  const { invoices, loading } = useSelector((state: RootState) => state.invoices);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+
+  // Fetch invoices when component mounts
+  useEffect(() => {
+    dispatch(fetchAllInvoices());
+  }, [dispatch]);
 
   // Filtrer les factures pour le client connecté
-  const clientInvoices = invoices.filter(inv => inv.clientId === user?.id);
+  const clientInvoices = invoices && Array.isArray(invoices) && user
+    ? invoices.filter(inv => inv.clientId === user.id)
+    : [];
 
-  const filteredInvoices = clientInvoices.filter(invoice =>
-    invoice.number.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filteredInvoices = clientInvoices && Array.isArray(clientInvoices)
+    ? clientInvoices.filter(invoice =>
+        invoice.number.toLowerCase().includes(searchText.toLowerCase())
+      )
+    : [];
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -59,6 +73,29 @@ const ClientInvoicesPage: React.FC = () => {
       cancelled: 'Annulée',
     };
     return texts[status as keyof typeof texts];
+  };
+
+  const handleDownloadPdf = async (invoice: Invoice) => {
+    try {
+      const pdfBlob = await generateInvoicePdf(invoice.id);
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `facture-${invoice.number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      message.success('PDF téléchargé avec succès');
+    } catch (error) {
+      message.error('Erreur lors du téléchargement du PDF');
+    }
+  };
+
+  const handlePaymentSuccess = (result: any) => {
+    message.success('Paiement effectué avec succès');
+    setPaymentModalVisible(false);
+    // Reload invoices to reflect new payment status
+    dispatch(fetchAllInvoices());
   };
 
   const columns = [
@@ -137,7 +174,11 @@ const ClientInvoicesPage: React.FC = () => {
           >
             Voir
           </Button>
-          <Button type="text" icon={<DownloadOutlined />}>
+          <Button 
+            type="text" 
+            icon={<DownloadOutlined />}
+            onClick={() => handleDownloadPdf(record)}
+          >
             PDF
           </Button>
           {record.status === 'sent' && (
@@ -145,6 +186,10 @@ const ClientInvoicesPage: React.FC = () => {
               type="primary" 
               size="small"
               icon={<CreditCardOutlined />}
+              onClick={() => {
+                setSelectedInvoice(record);
+                setPaymentModalVisible(true);
+              }}
             >
               Payer
             </Button>
@@ -186,6 +231,7 @@ const ClientInvoicesPage: React.FC = () => {
             showTotal: (total, range) => 
               `${range[0]}-${range[1]} sur ${total} factures`,
           }}
+          loading={loading}
         />
       </Card>
 
@@ -198,11 +244,23 @@ const ClientInvoicesPage: React.FC = () => {
           setSelectedInvoice(null);
         }}
         footer={[
-          <Button key="download" icon={<DownloadOutlined />}>
+          <Button 
+            key="download" 
+            icon={<DownloadOutlined />}
+            onClick={() => selectedInvoice && handleDownloadPdf(selectedInvoice)}
+          >
             Télécharger PDF
           </Button>,
           selectedInvoice?.status === 'sent' && (
-            <Button key="pay" type="primary" icon={<CreditCardOutlined />}>
+            <Button 
+              key="pay" 
+              type="primary" 
+              icon={<CreditCardOutlined />}
+              onClick={() => {
+                setModalVisible(false);
+                setPaymentModalVisible(true);
+              }}
+            >
               Payer maintenant
             </Button>
           ),
@@ -280,6 +338,16 @@ const ClientInvoicesPage: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal de paiement en ligne */}
+      {selectedInvoice && (
+        <OnlinePaymentModal
+          visible={paymentModalVisible}
+          invoice={selectedInvoice}
+          onCancel={() => setPaymentModalVisible(false)}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 };

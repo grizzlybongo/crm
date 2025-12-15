@@ -1,7 +1,18 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+// API paths for clients
+const API_URL = '/api/clients';
+const AUTH_API_URL = '/api/auth';
+
+// Function to get the base API URL (helpful for debugging)
+export const getApiBaseUrl = () => {
+  // Default to relative URL which will use the Vite proxy
+  return '/api';
+  
+  // For debugging, you can uncomment this to directly hit the backend:
+  // return 'http://localhost:5000/api';
+};
 
 export interface Client {
   id: string;
@@ -36,25 +47,66 @@ export const fetchClients = createAsyncThunk(
       const token = auth.token;
       
       if (!token) {
-        return rejectWithValue('No token found');
+        console.error('No authentication token found. Please log in again.');
+        return rejectWithValue('No authentication token found. Please log in again.');
       }
 
-      // Get client users from auth API
-      const response = await axios.get(`${API_URL}/auth/client-users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      console.log('Fetching clients from API...', {
+        url: API_URL,
+        tokenExists: !!token,
+        tokenPrefix: token ? token.substring(0, 10) + '...' : null
       });
 
-      // Get invoices to calculate totals
-      const invoicesResponse = await axios.get(`${API_URL}/invoices`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Try with proxy first
+      let response;
+      try {
+        response = await axios.get(API_URL, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (proxyError) {
+        console.log('Proxy API call failed, trying direct connection:', proxyError);
+        
+        // If proxy fails, try direct connection
+        try {
+          response = await axios.get(`http://localhost:5000${API_URL}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          console.log('Direct connection succeeded');
+        } catch (directError) {
+          console.error('Both proxy and direct API calls failed');
+          throw directError; // Re-throw to be caught by the outer catch
+        }
+      }
 
-      const invoices = invoicesResponse.data.data || [];
+      console.log('Clients response:', response.data);
+      
+      if (!response.data || !response.data.data) {
+        console.error('Invalid response format from clients API:', response.data);
+        return rejectWithValue('Invalid response from server. Check API format.');
+      }
+
       const clients = response.data.data || [];
+      
+      if (clients.length === 0) {
+        console.warn('No clients returned from API');
+      }
+
+      // Get invoices to calculate totals (using try/catch to continue even if invoices fail)
+      let invoices = [];
+      try {
+        const invoicesResponse = await axios.get('/api/invoices', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        invoices = invoicesResponse.data.data || [];
+      } catch (invoiceError) {
+        console.error('Error fetching invoices (continuing with client data):', invoiceError);
+      }
 
       // Calculate invoice totals for each client
       return clients.map((client: Client) => {
@@ -80,8 +132,24 @@ export const fetchClients = createAsyncThunk(
         };
       });
     } catch (error: any) {
+      // Log detailed error information
+      console.error('Error fetching clients:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: API_URL,
+      });
+      
+      // Return a user-friendly error message
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        return rejectWithValue('Authentication failed. Please log in again.');
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+        return rejectWithValue('Cannot connect to server. Please check if the server is running at http://localhost:5000.');
+      }
+      
       return rejectWithValue(
-        error.response?.data?.message || 'Failed to fetch client users'
+        error.response?.data?.message || error.message || 'Failed to fetch clients'
       );
     }
   }
@@ -98,7 +166,8 @@ export const createClientThunk = createAsyncThunk(
         return rejectWithValue('No token found');
       }
 
-      const response = await axios.post(API_URL, clientData, {
+      console.log('Creating client with data:', clientData);
+      const response = await axios.post('/api/clients', clientData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -106,6 +175,7 @@ export const createClientThunk = createAsyncThunk(
 
       return response.data.data;
     } catch (error: any) {
+      console.error('Error creating client:', error.response || error);
       return rejectWithValue(
         error.response?.data?.message || 'Failed to create client'
       );
@@ -124,7 +194,7 @@ export const updateClientThunk = createAsyncThunk(
         return rejectWithValue('No token found');
       }
 
-      const response = await axios.patch(`${API_URL}/${id}`, clientData, {
+      const response = await axios.patch(`/api/clients/${id}`, clientData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -132,6 +202,7 @@ export const updateClientThunk = createAsyncThunk(
 
       return response.data.data;
     } catch (error: any) {
+      console.error('Error updating client:', error.response || error);
       return rejectWithValue(
         error.response?.data?.message || 'Failed to update client'
       );
@@ -150,7 +221,7 @@ export const deleteClientThunk = createAsyncThunk(
         return rejectWithValue('No token found');
       }
 
-      await axios.delete(`${API_URL}/${id}`, {
+      await axios.delete(`/api/clients/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -158,6 +229,7 @@ export const deleteClientThunk = createAsyncThunk(
 
       return id;
     } catch (error: any) {
+      console.error('Error deleting client:', error.response || error);
       return rejectWithValue(
         error.response?.data?.message || 'Failed to delete client'
       );

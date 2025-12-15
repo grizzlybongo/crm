@@ -8,6 +8,7 @@ import {
   SendMessageData,
   MarkAsReadData,
 } from "../types/messageTypes";
+import { InvoiceNotification } from "../store/slices/notificationsSlice";
 
 class SocketService {
   private socket: Socket | null = null;
@@ -169,6 +170,13 @@ class SocketService {
   onOnlineUsersList(callback: (users: string[]) => void): void {
     if (this.socket) {
       this.socket.on("users:online-list", callback);
+    }
+  }
+
+  // Event listeners for invoice notifications
+  onInvoiceNotification(callback: (notification: InvoiceNotification) => void): void {
+    if (this.socket) {
+      this.socket.on("notification:invoice", callback);
     }
   }
 

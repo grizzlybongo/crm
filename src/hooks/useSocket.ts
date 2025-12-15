@@ -9,6 +9,7 @@ import {
   incrementUnreadCount,
   fetchConversations,
 } from "../store/slices/messagesSlice";
+import { addInvoiceNotification } from "../store/slices/notificationsSlice";
 import { Message, MessageNotification } from "../types/messageTypes";
 import { notification } from "antd";
 
@@ -125,6 +126,22 @@ export const useSocket = () => {
         dispatch(setOnlineUsers(users));
       });
 
+      // Listen for invoice notifications
+      socketService.onInvoiceNotification((invoiceNotification) => {
+        console.log("📥 Invoice notification received:", invoiceNotification);
+        
+        // Dispatch to Redux store
+        dispatch(addInvoiceNotification(invoiceNotification));
+        
+        // Show notification UI
+        notification.info({
+          message: invoiceNotification.title,
+          description: invoiceNotification.message,
+          placement: "topRight",
+          duration: 6,
+        });
+      });
+
       // Get initial online users list
       socketService.getOnlineUsers();
 
@@ -159,6 +176,7 @@ export const useSocket = () => {
       messageType?: "text" | "file" | "image";
       fileName?: string;
       fileUrl?: string;
+      tempId?: string;
     }): Promise<void> => {
       return new Promise((resolve, reject) => {
         if (!socketService.isConnected()) {
@@ -174,8 +192,9 @@ export const useSocket = () => {
         }
 
         try {
-          const tempId = `temp_${Date.now()}`;
-          socketService.sendMessage({ ...data, tempId });
+          // If tempId wasn't provided in the data, generate one
+          const messageData = data.tempId ? data : { ...data, tempId: `temp_${Date.now()}` };
+          socketService.sendMessage(messageData);
           resolve();
         } catch (error) {
           console.error("Failed to send message:", error);

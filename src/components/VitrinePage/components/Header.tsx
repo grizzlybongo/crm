@@ -34,13 +34,13 @@ const Header: React.FC<HeaderProps> = ({ isScrolled, isHeaderVisible }) => {
           <div className="contact-icon">
             <Phone size={14} />
           </div>
-          <a href="tel:+21694338220" className="contact-link">94338220</a>
+          <a href="tel:+21694338220" className="contact-link" style={{ color: 'black' }}>94338220</a>
         </div>
         <div className="contact-item">
           <div className="contact-icon">
             <Mail size={14} />
           </div>
-          <a href="mailto:contact@cmt-expertise.fr" className="contact-link">contact@cmt.tn</a>
+          <a href="mailto:contact@cmt-expertise.fr" className="contact-link" style={{ color: 'black' }}>contact@cmt.tn</a>
         </div>
         <div className="contact-item">
           <div className="contact-icon">

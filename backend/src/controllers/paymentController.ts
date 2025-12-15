@@ -2,16 +2,19 @@ import { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Payment from '../models/Payment';
 import Invoice from '../models/Invoice';
-import Client from '../models/Client';
+import User from '../models/User';
 import { AppError, sendSuccessResponse } from '../utils/errorHandler';
 import { AuthRequest, PaymentResponse } from '../types';
+import * as paymentService from '../services/paymentService';
+import stripe from '../config/stripe';
 
 // Map MongoDB document to frontend Payment response
 const mapPaymentToResponse = async (payment: any): Promise<PaymentResponse> => {
   let clientName = '';
   
   try {
-    const client = await Client.findById(payment.clientId);
+    // Find client in users collection
+    const client = await User.findOne({ _id: payment.clientId, role: 'client' });
     if (client) {
       clientName = client.name;
     }
@@ -46,7 +49,7 @@ export const getAllPayments = async (req: AuthRequest, res: Response, next: Next
       payments = await Payment.find().sort({ date: -1 });
     } else {
       // Clients can only see their own payments
-      const client = await Client.findOne({ email: req.user.email });
+      const client = await User.findOne({ email: req.user.email, role: 'client' });
       if (!client) {
         return next(new AppError('Client profile not found', 404));
       }
@@ -83,7 +86,7 @@ export const getPaymentById = async (req: AuthRequest, res: Response, next: Next
 
     // Check if user has access to this payment
     if (req.user.role !== 'admin') {
-      const client = await Client.findOne({ email: req.user.email });
+      const client = await User.findOne({ email: req.user.email, role: 'client' });
       if (!client || !payment.clientId.equals(client._id)) {
         return next(new AppError('Not authorized to access this payment', 403));
       }
@@ -130,7 +133,7 @@ export const createPayment = async (req: AuthRequest, res: Response, next: NextF
 
     // If payment is completed, update client statistics
     if (payment.status === 'completed') {
-      await Client.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         invoice.clientId,
         {
           $inc: { 
@@ -204,7 +207,7 @@ export const updatePayment = async (req: AuthRequest, res: Response, next: NextF
         
         // If payment was previously not completed and now it's completed
         if (existingPayment.status !== 'completed' && status === 'completed') {
-          await Client.findByIdAndUpdate(
+          await User.findByIdAndUpdate(
             updatedPayment.clientId,
             {
               $inc: { 
@@ -225,7 +228,7 @@ export const updatePayment = async (req: AuthRequest, res: Response, next: NextF
         }
         // If payment was previously completed and now it's not completed
         else if (existingPayment.status === 'completed' && status !== 'completed') {
-          await Client.findByIdAndUpdate(
+          await User.findByIdAndUpdate(
             updatedPayment.clientId,
             {
               $inc: { 
@@ -274,7 +277,7 @@ export const deletePayment = async (req: AuthRequest, res: Response, next: NextF
 
     // Revert client statistics if payment was completed
     if (payment.status === 'completed') {
-      await Client.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         payment.clientId,
         {
           $inc: { 
@@ -297,6 +300,196 @@ export const deletePayment = async (req: AuthRequest, res: Response, next: NextF
     await Payment.findByIdAndDelete(id);
 
     sendSuccessResponse(res, null, 'Payment deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}; 
+
+// Create payment intent for online payment
+export const createPaymentIntent = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return next(new AppError('Not authenticated', 401));
+    }
+
+    const { invoiceId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(invoiceId)) {
+      return next(new AppError('Invalid invoice ID', 400));
+    }
+
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) {
+      return next(new AppError('Invoice not found', 404));
+    }
+
+    // Check if user has access to this invoice
+    if (req.user.role !== 'admin') {
+      const client = await User.findOne({ email: req.user.email, role: 'client' });
+      if (!client || !invoice.clientId.equals(client._id)) {
+        return next(new AppError('Not authorized to pay this invoice', 403));
+      }
+    }
+
+    // Check if invoice is already paid
+    if (invoice.status === 'paid') {
+      return next(new AppError('This invoice is already paid', 400));
+    }
+
+    const client = await User.findById(invoice.clientId);
+    if (!client) {
+      return next(new AppError('Client not found', 404));
+    }
+
+    // Create payment intent with Stripe
+    const paymentIntent = await paymentService.createPaymentIntent(invoice, client);
+
+    sendSuccessResponse(res, paymentIntent, 'Payment intent created successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Create checkout session for online payment
+export const createCheckoutSession = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return next(new AppError('Not authenticated', 401));
+    }
+
+    const { invoiceId, successUrl, cancelUrl } = req.body;
+
+    if (!invoiceId || !successUrl || !cancelUrl) {
+      return next(new AppError('Missing required parameters', 400));
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(invoiceId)) {
+      return next(new AppError('Invalid invoice ID', 400));
+    }
+
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) {
+      return next(new AppError('Invoice not found', 404));
+    }
+
+    // Check if user has access to this invoice
+    if (req.user.role !== 'admin') {
+      const client = await User.findOne({ email: req.user.email, role: 'client' });
+      if (!client || !invoice.clientId.equals(client._id)) {
+        return next(new AppError('Not authorized to pay this invoice', 403));
+      }
+    }
+
+    // Check if invoice is already paid
+    if (invoice.status === 'paid') {
+      return next(new AppError('This invoice is already paid', 400));
+    }
+
+    const client = await User.findById(invoice.clientId);
+    if (!client) {
+      return next(new AppError('Client not found', 404));
+    }
+
+    // Create checkout session with Stripe
+    const session = await paymentService.createCheckoutSession(invoice, client, successUrl, cancelUrl);
+
+    sendSuccessResponse(res, session, 'Checkout session created successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Handle Stripe webhook events
+export const handleWebhook = async (req: any, res: Response, next: NextFunction) => {
+  try {
+    const signature = req.headers['stripe-signature'];
+    const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    if (!signature || !stripeWebhookSecret) {
+      return next(new AppError('Missing stripe signature or webhook secret', 400));
+    }
+    
+    // Verify the event
+    let event;
+    try {
+      // Make sure we're using the raw body that was saved by the middleware
+      if (!req.rawBody) {
+        return next(new AppError('Missing raw request body for webhook verification', 400));
+      }
+      
+      event = stripe.webhooks.constructEvent(req.rawBody, signature, stripeWebhookSecret);
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return next(new AppError(`Webhook signature verification failed: ${err.message}`, 400));
+    }
+    
+    // Process the event
+    const paymentResult = await paymentService.handleWebhookEvent(event);
+    
+    if (!paymentResult) {
+      // Unhandled event type, still return success to Stripe
+      return res.status(200).json({ received: true });
+    }
+    
+    // Create a payment record in our database
+    if (paymentResult.status === 'completed' && paymentResult.invoiceId) {
+      const invoice = await Invoice.findById(paymentResult.invoiceId);
+      
+      if (invoice) {
+        // Create payment record
+        await Payment.create({
+          invoiceId: invoice._id,
+          clientId: invoice.clientId,
+          amount: paymentResult.amount,
+          date: new Date(),
+          method: 'card',
+          status: 'completed',
+          reference: paymentResult.paymentIntentId,
+          notes: 'Online payment via Stripe'
+        });
+        
+        // Update invoice status
+        invoice.status = 'paid';
+        await invoice.save();
+        
+        // Update client statistics
+        await User.findByIdAndUpdate(
+          invoice.clientId,
+          {
+            $inc: { 
+              totalPaid: invoice.total,
+              totalPending: -invoice.total
+            },
+            lastActivity: new Date()
+          }
+        );
+      }
+    }
+    
+    // Return a response to acknowledge receipt of the event
+    res.status(200).json({ received: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Check payment status
+export const checkPaymentStatus = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return next(new AppError('Not authenticated', 401));
+    }
+
+    const { paymentIntentId } = req.params;
+
+    if (!paymentIntentId) {
+      return next(new AppError('Payment intent ID is required', 400));
+    }
+
+    // Check payment status with Stripe
+    const status = await paymentService.checkPaymentStatus(paymentIntentId);
+
+    sendSuccessResponse(res, status, 'Payment status retrieved successfully');
   } catch (error) {
     next(error);
   }
